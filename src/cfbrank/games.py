@@ -272,14 +272,24 @@ def load_seasons(seasons, directory: Path = RAW_SCHEDULES) -> list[Game]:
     return collected
 
 
+# First season the model can rate: play-by-play (and so the efficiency
+# half of the ensemble and the roster prior) starts in 2014. Older
+# schedule files can exist on disk -- the mirror has them back to 2001 --
+# and fitting them crashes with a singular matrix. That exact crash took
+# down the first GitHub Pages build.
+FIRST_SEASON = 2014
+
+
 def available_seasons(directory: Path = RAW_SCHEDULES) -> list[int]:
-    """Which seasons are on disk."""
+    """Which ratable seasons (FIRST_SEASON onward) are on disk."""
     seasons = []
     for path in directory.glob("schedules_*.csv"):
         try:
-            seasons.append(int(path.stem.split("_")[-1]))
+            season = int(path.stem.split("_")[-1])
         except ValueError:
             continue
+        if season >= FIRST_SEASON:
+            seasons.append(season)
     return sorted(seasons)
 
 

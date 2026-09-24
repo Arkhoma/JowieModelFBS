@@ -15,6 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from cfbrank.games import (  # noqa: E402
+    FIRST_SEASON,
     available_seasons,
     load_season,
     team_divisions,
@@ -30,6 +31,15 @@ def test_seasons_are_on_disk():
     seasons = available_seasons()
     assert seasons, "No schedule files found. Run tools/fetch_mirror.py"
     assert 2024 in seasons
+
+
+def test_unratable_old_seasons_are_ignored(tmp_path):
+    """Regression: the mirror has schedules back to 2001, and a fresh CI
+    download pulled them. Fitting 2001 raises a singular matrix, which
+    killed the first GitHub Pages build. Only FIRST_SEASON+ counts."""
+    for year in (2001, 2013, FIRST_SEASON, 2024):
+        (tmp_path / f"schedules_{year}.csv").write_text("")
+    assert available_seasons(tmp_path) == [FIRST_SEASON, 2024]
 
 
 def test_loads_a_plausible_number_of_games(games_2024):

@@ -34,7 +34,9 @@ RAW_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
 # Through the current calendar year, so the scheduled refresh picks up a
 # new season on its own. Not-yet-published files 404 and are skipped.
 THIS_YEAR = date.today().year
-SCHEDULE_YEARS = range(2001, THIS_YEAR + 1)
+# From 2014, matching cfbrank.games.FIRST_SEASON: older schedules exist
+# on the mirror but the model can't rate them (no play data).
+SCHEDULE_YEARS = range(2014, THIS_YEAR + 1)
 
 # The `player_stats` family is misleadingly named: it is PLAY-LEVEL data
 # (one row per play, with down/distance/yards_to_goal/clock), not season
