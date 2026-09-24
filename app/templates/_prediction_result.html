@@ -1,0 +1,70 @@
+{% if error %}
+<div class="retro-card p-4 text-crimson font-bold" role="alert">
+  &#9888; {{ error }}
+</div>
+{% elif prediction %}
+
+<div class="retro-card overflow-hidden">
+
+  <div class="scoreboard px-5 py-5">
+    <div class="text-xs uppercase tracking-[0.3em] text-center mb-3 opacity-80">
+      {% if prediction.neutral_site %}Neutral site{% else %}At {{ prediction.home_team }}{% endif %}
+    </div>
+
+    <div class="flex items-center justify-between gap-4">
+      <div class="text-right flex-1">
+        <div class="text-sm uppercase tracking-wider">{{ prediction.away_team }}</div>
+        <div class="text-4xl sm:text-5xl font-bold tabular-nums">{{ "%.0f"|format(prediction.away_score) }}</div>
+      </div>
+      <div class="text-sm opacity-70">AT</div>
+      <div class="flex-1">
+        <div class="text-sm uppercase tracking-wider">{{ prediction.home_team }}</div>
+        <div class="text-4xl sm:text-5xl font-bold tabular-nums">{{ "%.0f"|format(prediction.home_score) }}</div>
+      </div>
+    </div>
+
+    <div class="mt-4 text-center">
+      {{ prediction.favourite }} by {{ "%.1f"|format(prediction.spread) }}
+      &middot; total {{ "%.1f"|format(prediction.total) }}
+    </div>
+  </div>
+
+  <div class="p-5 grid sm:grid-cols-2 gap-6">
+    <div>
+      <h3 class="font-varsity uppercase tracking-wider text-crimson mb-3">Win probability</h3>
+      {% set home_pct = (prediction.home_win_probability * 100) | round | int %}
+      {% for team, pct in [(prediction.home_team, home_pct), (prediction.away_team, 100 - home_pct)] %}
+      <div class="mb-3">
+        <div class="flex justify-between text-sm mb-1">
+          <span>{{ team }}</span><span class="tabular-nums font-bold">{{ pct }}%</span>
+        </div>
+        <div class="h-4 bg-paper border-2 border-ink">
+          <div class="h-full {{ 'bg-crimson' if loop.first else 'bg-ink' }}" style="width: {{ pct }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div>
+      <h3 class="font-varsity uppercase tracking-wider text-crimson mb-3">Why</h3>
+      <table class="w-full text-sm">
+        <tbody>
+          {% for label, value in prediction.factors %}
+          <tr class="border-b border-dashed border-muted last:border-0">
+            <td class="py-1.5">{{ label }}</td>
+            <td class="py-1.5 text-right tabular-nums font-bold
+                       {% if value < 0 %}text-crimson{% endif %}">{{ "%+.2f"|format(value) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="border-t-[3px] border-ink bg-paper px-5 py-3 text-xs">
+    <strong>&plusmn;{{ "%.1f"|format(prediction.error_std) }} points</strong>
+    typical miss. Anything inside two touchdowns is close to a coin flip.
+  </p>
+</div>
+
+{% endif %}

@@ -1,0 +1,33 @@
+[project]
+name = "cfb-rankings"
+version = "0.1.0"
+description = "Opponent-adjusted college football ratings: predictive and resume, never averaged."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn>=0.30,<1.0",
+    "jinja2>=3.1,<4.0",
+    "python-multipart>=0.0.9",
+    "numpy>=1.26,<3.0",
+    "pandas>=2.0,<4.0",
+    "pyarrow>=15.0",
+]
+
+[project.optional-dependencies]
+# scipy is used by tools/ranking_convergence.py only, never by src/.
+analysis = ["scipy>=1.11"]
+dev = ["pytest>=8.0", "scipy>=1.11"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# tests/conftest.py puts src/ on the path; no editable install required.

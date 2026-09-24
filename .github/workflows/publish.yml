@@ -1,0 +1,74 @@
+# Weekly refresh + publish to GitHub Pages.
+#
+# Pulls the latest games from the public mirror, refits every season,
+# renders the site to flat HTML (tools/build_static_site.py) and deploys
+# it. The tests have to pass first, so a bad data week can't publish a
+# broken site. The last good version just stays up.
+#
+# One-time setup: repo Settings > Pages > Source = "GitHub Actions".
+
+name: Refresh and publish
+
+on:
+  schedule:
+    # GitHub cron is UTC only. 14:00 UTC = 9am Central in summer (CDT),
+    # 8am in winter (CST). Scheduled runs can also start 5-15 min late.
+    - cron: "0 14 * * 0"
+  workflow_dispatch: {}          # "Run workflow" button for a manual refresh
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Past seasons never change, so keep data/raw between runs and let
+      # --current re-download only the recent seasons + lines. Every run
+      # saves a new cache and restores the newest match.
+      - name: Restore data cache
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: raw-${{ github.run_id }}
+          restore-keys: raw-
+
+      - name: Fetch latest data
+        run: python tools/fetch_mirror.py --current
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: Build static site
+        run: python tools/build_static_site.py --out _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

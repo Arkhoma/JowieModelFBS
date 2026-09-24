@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}JowieModel FBS{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Graduate&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      // Cream and crimson only, plus ink. Deliberately no gold: crimson +
+      // gold reads as USC.
+      colors: {
+        paper:   "#f5efe0",   // cream program stock
+        card:    "#fffbf2",
+        ink:     "#1c1a17",
+        crimson: { DEFAULT: "#a51c30", dark: "#7d1523" },  // 6.5:1 on paper
+        muted:   "#5f574b",   // 6.3:1 on paper, WCAG AA
+      },
+      fontFamily: {
+        varsity: ["Graduate", "Georgia", "serif"],
+        mono:    ["Courier Prime", "Courier New", "monospace"],
+      },
+    }}};
+  </script>
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <link rel="stylesheet" href="{{ nav.static }}/retro.css">
+</head>
+<body class="bg-paper text-ink min-h-screen font-mono">
+
+  <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2
+     focus:left-2 bg-paper text-crimson border-2 border-crimson px-3 py-1 z-50">Skip to content</a>
+
+  <header class="bg-crimson text-paper border-b-8 border-double border-paper">
+    <div class="pennant-stripe" aria-hidden="true"></div>
+    <div class="max-w-6xl mx-auto px-4 pt-5 pb-3 text-center">
+      <h1 class="font-varsity text-3xl sm:text-5xl tracking-wide varsity-shadow">
+        <a href="{{ nav.home }}" class="hover:underline decoration-4 underline-offset-8">JowieModel FBS</a>
+      </h1>
+      <p class="text-sm text-paper/90 mt-1">No polls &middot; No committees &middot; No hand-tuned weights</p>
+    </div>
+
+    <nav class="max-w-6xl mx-auto px-4" aria-label="Main">
+      <ul class="flex justify-center gap-1 -mb-[8px]">
+        {# (key, href, full label, short label for phones) #}
+        {% set tabs = [
+          ('rankings', nav.home, 'Rankings', 'Rankings'),
+          ('predict', nav.predict, 'Predict a Game', 'Predict'),
+          ('about', nav.about, 'How It Works', 'About')
+        ] %}
+        {% for key, href, label, short in tabs %}
+        <li>
+          <a href="{{ href }}"
+             class="retro-tab inline-block px-2 sm:px-4 py-2 text-xs sm:text-sm font-varsity uppercase tracking-wider
+             {% if active_tab == key %}retro-tab-active{% endif %}"
+             {% if active_tab == key %}aria-current="page"{% endif %}>
+            <span class="sm:hidden">{{ short }}</span><span class="hidden sm:inline">{{ label }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main" class="max-w-6xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-4 py-6 text-xs text-muted text-center
+                 border-t-4 border-double border-crimson mt-12">
+    &#9733; JowieModel FBS &#9733; Data: sportsdataverse/cfbfastR-data
+    (mirror of CollegeFootballData) &#9733;
+  </footer>
+
+</body>
+</html>

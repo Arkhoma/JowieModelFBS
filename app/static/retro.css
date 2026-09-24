@@ -1,0 +1,97 @@
+/* JowieModel FBS -- 90s collegiate program look, cream and crimson.
+   Palette lives in tailwind.config (base.html); keep these hexes in sync:
+     cream #f5efe0   card #fffbf2   ink #1c1a17
+     crimson #a51c30 crimson-dark #7d1523
+   No gold on purpose: crimson + gold reads as USC. */
+
+/* Faint ruled-paper texture, like a stat sheet. */
+body {
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 27px, rgba(165, 28, 48, .06) 27px 28px);
+}
+
+/* Cream-and-crimson pennant stripe along the very top. */
+.pennant-stripe {
+  height: 10px;
+  background: repeating-linear-gradient(135deg,
+    #f5efe0 0 14px, #7d1523 14px 28px);
+}
+
+.varsity-shadow { text-shadow: 3px 3px 0 #1c1a17, 5px 5px 0 #7d1523; }
+
+/* Folder-style tabs hanging off the header. */
+.retro-tab {
+  background: #7d1523;
+  color: #f5efe0;
+  border: 3px solid #f5efe0;
+  border-bottom: none;
+}
+.retro-tab:hover { background: #1c1a17; }
+.retro-tab-active,
+.retro-tab-active:hover { background: #f5efe0; color: #a51c30; }
+
+/* Chunky "index card" panel used throughout. */
+.retro-card {
+  background: #fffbf2;
+  border: 3px solid #1c1a17;
+  box-shadow: 6px 6px 0 #a51c30;
+}
+
+/* Beveled Win95-era button. */
+.retro-btn {
+  background: #a51c30;
+  color: #f5efe0;
+  border: 3px outset #d9a3ab;
+  font-family: "Graduate", Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.retro-btn:hover { background: #7d1523; }
+.retro-btn:active { border-style: inset; }
+.retro-btn-ghost { background: #fffbf2; color: #a51c30; border-color: #a51c30; }
+.retro-btn-ghost:hover { background: #f5efe0; }
+.retro-btn[aria-current="true"] { background: #1c1a17; color: #f5efe0; }
+
+/* Scoreboard digits: cream on black, crimson frame. */
+.scoreboard {
+  background: #111;
+  color: #f5efe0;
+  font-family: "Courier Prime", monospace;
+  border: 4px ridge #a51c30;
+}
+
+/* Visible keyboard focus everywhere (WCAG 2.4.7 / 2.4.11). */
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, [role="option"]:focus-visible {
+  outline: 3px solid #1c1a17;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px #f5efe0;
+}
+
+/* Zebra rows like a printed stat table. Rows get an explicit background so
+   the sticky rank/team columns cover what scrolls underneath them. */
+.stat-table tbody tr { background: #fffbf2; }
+.stat-table tbody tr:nth-child(even) { background: #f5efe0; }
+.stat-table thead, .stat-table thead th { background: #1c1a17; color: #f5efe0; }
+.stat-table th { font-family: "Graduate", Georgia, serif; font-weight: 400;
+                 letter-spacing: .05em; }
+.stat-table tr.top12 td:first-child { box-shadow: inset 5px 0 0 #a51c30; }
+
+/* Wide tables scroll sideways on phones; rank + team stay pinned. */
+.stat-table .pin-rank { position: sticky; left: 0; width: 3rem; min-width: 3rem;
+                        background: inherit; z-index: 1; }
+.stat-table .pin-team { position: sticky; left: 3rem; background: inherit;
+                        z-index: 1; box-shadow: 3px 0 0 rgba(28, 26, 23, .15); }
+
+@media (max-width: 639px) {
+  .varsity-shadow { text-shadow: 2px 2px 0 #1c1a17, 3px 3px 0 #7d1523; }
+  .stat-table th, .stat-table td { padding-left: .5rem; padding-right: .5rem; }
+}
+
+/* Team search combobox. */
+.combo-list { max-height: 16rem; overflow-y: auto; }
+.combo-list [aria-selected="true"] { background: #a51c30; color: #f5efe0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .retro-btn, .retro-tab { transition: background-color .12s; }
+}

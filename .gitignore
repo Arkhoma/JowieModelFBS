@@ -1,0 +1,35 @@
+# Secrets - never commit
+.env
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Cached API responses (large, regenerable)
+data/raw/
+data/cache/
+
+# Generated output
+output/
+_site*/
+*.log
+*.html
+# Jinja templates are source, not output. The previous negation was
+# `!templates/*.html`, which git never matched because the real path is
+# `app/templates/` -- so every template silently stayed untracked and
+# invisible to tooling. Cost a whole debugging session chasing a
+# "missing" UI that was sitting on disk the whole time.
+!app/templates/*.html
+# benchmark_vs_market.csv IS committed: the About page grades the model
+# from it, and the published site is built from a clean checkout. It's
+# public lines + our predictions, no personal data. Regenerate with
+# tools/benchmark_vs_market.py after any model change.
+data/improvement_components.csv
+server_*.log
+data/offdef_components.csv

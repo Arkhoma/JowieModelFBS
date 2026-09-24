@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Predict a Game | JowieModel FBS{% endblock %}
+
+{% macro team_picker(id, label, default) %}
+<div data-combobox class="relative">
+  <label for="{{ id }}" class="block font-varsity uppercase tracking-wider text-sm mb-1.5">{{ label }}</label>
+  <div class="flex">
+    <input id="{{ id }}" name="{{ id }}" type="text" required autocomplete="off"
+           role="combobox" aria-autocomplete="list" aria-expanded="false"
+           aria-controls="{{ id }}-list" value="{{ default }}"
+           placeholder="Search teams..."
+           class="flex-1 min-w-0 bg-card border-ink border-r-0 px-3 py-2 text-base
+                  border-[3px] focus:outline-none">
+    <button type="button" tabindex="-1" aria-label="Show all teams"
+            aria-controls="{{ id }}-list" aria-expanded="false"
+            class="retro-btn px-4 min-h-[44px]">&#9660;</button>
+  </div>
+  <ul id="{{ id }}-list" role="listbox" aria-label="{{ label }}" hidden
+      class="combo-list absolute z-20 left-0 right-0 mt-1 retro-card">
+    {% for t in teams %}
+    <li id="{{ id }}-opt-{{ loop.index }}" role="option" aria-selected="false"
+        data-value="{{ t.name }}"
+        data-search="{{ (t.name ~ ' ' ~ t.conference)|lower }}"
+        class="px-3 py-2.5 cursor-pointer flex justify-between gap-3 hover:bg-paper">
+      <span><span class="text-muted tabular-nums">#{{ t.rank }}</span> {{ t.name }}</span>
+      <span class="text-xs text-muted">{{ t.record }} &middot; {{ t.conference }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p role="status" class="sr-only"></p>
+</div>
+{% endmacro %}
+
+{% block content %}
+
+<h2 class="font-varsity text-3xl text-crimson mb-1">Predict a Game</h2>
+<p class="text-sm text-muted mb-6">Any two FBS teams, real or hypothetical. Type to search, or open the list.</p>
+
+{% if static_build %}
+<form id="predict-form" class="retro-card p-5 mb-8">
+{% else %}
+<form hx-post="/predict" hx-target="#result" hx-swap="innerHTML"
+      class="retro-card p-5 mb-8">
+{% endif %}
+  <input type="hidden" name="season" value="{{ season }}">
+
+  <div class="grid sm:grid-cols-[1fr_auto_1fr] gap-4 items-end">
+    {{ team_picker("away_team", "Away team", "Texas") }}
+    <button type="button" id="swap-teams" class="retro-btn retro-btn-ghost px-3 py-2 mb-0.5 justify-self-center"
+            aria-label="Swap home and away"><span class="sm:hidden">&#8645;</span><span class="hidden sm:inline">&#8646;</span></button>
+    {{ team_picker("home_team", "Home team", "Oklahoma") }}
+  </div>
+
+  <div class="flex flex-wrap items-center gap-4 mt-5">
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="neutral_site" id="neutral_site"
+             class="w-4 h-4 accent-crimson">
+      Neutral site (bowls, playoffs)
+    </label>
+    <button type="submit" class="retro-btn ml-auto px-6 py-2">Predict</button>
+  </div>
+</form>
+
+<div id="result" aria-live="polite"></div>
+
+{% if static_build %}
+<script type="application/json" id="model-data">{{ model_json | tojson }}</script>
+<script src="{{ nav.static }}/predict.js" defer></script>
+{% endif %}
+<script src="{{ nav.static }}/combobox.js" defer></script>
+{% endblock %}

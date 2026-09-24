@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Rankings {{ season }} | JowieModel FBS{% endblock %}
+
+{% block content %}
+
+<div class="flex flex-wrap items-end justify-between gap-4 mb-5">
+  <div>
+    <h2 class="font-varsity text-3xl text-crimson">{{ season }} Rankings</h2>
+    <p class="text-sm text-muted mt-1">
+      {{ n_games }} games through {{ "the postseason" if has_postseason else "week %d"|format(max_week) }}.
+      Sorted by <strong class="text-ink">{{ sort }}</strong>.
+    </p>
+  </div>
+
+  <nav aria-label="Choose season">
+    <label class="font-varsity uppercase text-xs text-muted block mb-1">Season</label>
+    <div class="flex flex-wrap gap-1">
+      {% for s in seasons|reverse %}
+      <a href="{{ rank_url(s, sort) }}"
+         {% if s == season %}aria-current="true"{% endif %}
+         class="retro-btn px-2.5 py-1 text-xs {% if s != season %}retro-btn-ghost{% endif %}">{{ s }}</a>
+      {% endfor %}
+    </div>
+  </nav>
+</div>
+
+<p class="text-sm mb-4">
+  <strong class="text-crimson">Predictive</strong>: who wins on a neutral field.
+  <strong class="text-crimson">Resume</strong>: who has earned the most, wins only.
+  Never averaged. <a href="{{ nav.about }}" class="underline text-crimson">How it works</a>
+</p>
+
+<nav class="flex flex-wrap gap-2 mb-5" aria-label="Sort rankings by rating type">
+  {% for key, label in [("predictive", "Predictive"), ("resume", "Resume"),
+                        ("offense", "Offense"), ("defense", "Defense")] %}
+  <a href="{{ rank_url(season, key) }}"
+     {% if sort == key %}aria-current="true"{% endif %}
+     class="retro-btn px-3 py-1.5 text-sm {% if sort != key %}retro-btn-ghost{% endif %}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<div class="overflow-x-auto retro-card">
+  <table class="stat-table w-full text-sm">
+    <caption class="sr-only">{{ season }} college football ratings, ordered best to worst</caption>
+    <thead>
+      <tr>
+        <th scope="col" class="pin-rank text-right px-3 py-2">#</th>
+        <th scope="col" class="pin-team text-left  px-3 py-2">Team</th>
+        <th scope="col" class="text-right px-3 py-2">Record</th>
+        <th scope="col" class="text-right px-3 py-2">Predictive</th>
+        <th scope="col" class="text-right px-3 py-2">Resume</th>
+        <th scope="col" class="text-right px-3 py-2">Off</th>
+        <th scope="col" class="text-right px-3 py-2">Def</th>
+        <th scope="col" class="text-left px-3 py-2 hidden lg:table-cell">Best win</th>
+        <th scope="col" class="text-left px-3 py-2 hidden lg:table-cell">Worst loss</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rankings %}
+      {% set shown = {"resume": row.resume_rank, "offense": row.offense_rank,
+                      "defense": row.defense_rank}.get(sort, row.rank) %}
+      {% set cols = [("predictive", row.rank, "%+.1f"|format(row.rating)),
+                     ("resume", row.resume_rank,
+                      "%+.2f"|format(row.resume_score) if row.resume_score is not none else ""),
+                     ("offense", row.offense_rank, "%+.1f"|format(row.offense)),
+                     ("defense", row.defense_rank, "%+.1f"|format(row.defense))] %}
+      <tr class="border-t border-ink/20 {% if shown and shown <= 12 %}top12{% endif %}">
+        <td class="pin-rank text-right px-3 py-2 tabular-nums font-bold">{{ shown or "-" }}</td>
+        <td class="pin-team px-3 py-2 font-bold">
+          {{ row.team }}
+          <span class="block text-xs font-normal text-muted">{{ row.conference }}</span>
+        </td>
+        <td class="text-right px-3 py-2 tabular-nums">{{ row.wins }}-{{ row.losses }}</td>
+        {% for key, rank, value in cols %}
+        <td class="text-right px-3 py-2 tabular-nums">
+          <span class="font-bold {% if key == sort %}text-crimson{% endif %}">#{{ rank or "-" }}</span>
+          <span class="block text-xs text-muted">{{ value }}</span>
+        </td>
+        {% endfor %}
+        <td class="px-3 py-2 text-xs hidden lg:table-cell">{{ row.best_win or "&mdash;"|safe }}</td>
+        <td class="px-3 py-2 text-xs hidden lg:table-cell">{{ row.worst_loss or "&mdash;"|safe }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-muted mt-4">
+  Ratings are points vs an average FBS team; bigger is better. Resume = wins
+  above a top-25 team's expected wins. Win/loss % = that team's chance of
+  winning the same game (low next to a win is good). Off/Def don't affect the
+  rank. Crimson bar = top 12.
+</p>
+
+{% endblock %}

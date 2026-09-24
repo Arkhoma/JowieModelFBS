@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}How It Works | JowieModel FBS{% endblock %}
+
+{% macro stat(label, value, note, accent=false) %}
+<div class="retro-card p-4 {{ 'bg-crimson text-paper' if accent }}">
+  <div class="font-varsity text-xs uppercase tracking-wider {{ 'text-paper' if accent else 'text-muted' }}">{{ label }}</div>
+  <div class="text-3xl font-bold tabular-nums">{{ value }}</div>
+  <div class="text-xs {{ 'text-paper' if accent else 'text-muted' }}">{{ note }}</div>
+</div>
+{% endmacro %}
+
+{% macro slice_table(caption, rows) %}
+<div class="overflow-x-auto retro-card">
+  <table class="stat-table w-full text-sm">
+    <caption class="sr-only">{{ caption }}</caption>
+    <thead>
+      <tr>
+        <th scope="col" class="text-left px-4 py-2"><span class="sr-only">Slice</span></th>
+        <th scope="col" class="text-right px-4 py-2">Games</th>
+        <th scope="col" class="text-right px-4 py-2">Our miss</th>
+        <th scope="col" class="text-right px-4 py-2">Vegas miss</th>
+        <th scope="col" class="text-right px-4 py-2">Gap</th>
+        <th scope="col" class="text-right px-4 py-2">Winner</th>
+        <th scope="col" class="text-right px-4 py-2 hidden sm:table-cell">Vegas winner</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for label, g in rows %}
+      <tr class="border-t border-ink/20">
+        <th scope="row" class="text-left px-4 py-2 font-bold">{{ label }}</th>
+        <td class="px-4 py-2 text-right tabular-nums">{{ "{:,}".format(g.n) }}</td>
+        <td class="px-4 py-2 text-right tabular-nums">{{ "%.2f"|format(g.mae) }}</td>
+        <td class="px-4 py-2 text-right tabular-nums text-muted">{{ "%.2f"|format(g.line_mae) }}</td>
+        <td class="px-4 py-2 text-right tabular-nums font-bold {{ 'text-crimson' if g.gap > 0 }}">{{ "%+.2f"|format(g.gap) }}</td>
+        <td class="px-4 py-2 text-right tabular-nums">{{ "%.1f%%"|format(g.su * 100) }}</td>
+        <td class="px-4 py-2 text-right tabular-nums text-muted hidden sm:table-cell">{{ "%.1f%%"|format(g.line_su * 100) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="max-w-4xl space-y-12">
+
+<section aria-labelledby="accuracy">
+  <h2 id="accuracy" class="font-varsity text-3xl text-crimson mb-1">Accuracy</h2>
+  {% if card %}
+  {% set p = card.pooled %}
+  <p class="text-sm text-muted mb-5">
+    {{ "{:,}".format(p.n) }} games ({{ card.seasons|first }}&ndash;{{ card.seasons|last }},
+    postseason included), each predicted from earlier games only, vs the closing betting line.
+  </p>
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    {{ stat("Gap to Vegas", "%+.2f"|format(p.gap),
+            "pts/game (&plusmn;%.2f)"|format(p.gap_ci)|safe, true) }}
+    {{ stat("Winner picked", "%.1f%%"|format(p.su * 100), "Vegas %.1f%%"|format(p.line_su * 100)) }}
+    {{ stat("Spread miss", "%.1f"|format(p.mae), "Vegas %.1f"|format(p.line_mae)) }}
+    {% if card.totals %}
+    {{ stat("Total miss", "%.1f"|format(card.totals.mae), "Vegas %.1f"|format(card.totals.line_mae)) }}
+    {% endif %}
+  </div>
+
+  {% set slices = [("Weeks 4&ndash;8"|safe, card.early), ("Week 9+", card.late)]
+                  + ([("Postseason", card.post)] if card.post else []) %}
+  {{ slice_table("Accuracy by part of the season, and by season",
+                 slices + card.per_season.items()|list) }}
+
+  {% if card.tiers %}
+  <h3 class="font-varsity text-xl text-crimson mt-8 mb-2">Postseason by tier</h3>
+  {{ slice_table("Postseason accuracy by bowl tier",
+                 card.tiers|dictsort|sort(attribute="1.n", reverse=true)) }}
+  <p class="text-sm mt-3">
+    The postseason gap is almost all in lower-tier bowls, where opt-outs and
+    motivation matter and aren't in the data. On CFP games we're even with
+    Vegas (small sample). NY6 outside the playoff is only 4 games.
+  </p>
+  {% endif %}
+  {% else %}
+  <p class="text-sm text-crimson">No benchmark yet. Run <code>python tools/benchmark_vs_market.py</code>.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="how">
+  <h2 id="how" class="font-varsity text-3xl text-crimson mb-3">Method</h2>
+  <dl class="grid sm:grid-cols-2 gap-4 text-sm">
+    {% for term, desc in [
+      ("Ratings", "Every game is an equation (margin = home &minus; away + home field). All teams solved at once, so schedule strength is built in."),
+      ("Inputs", "Scoring margin plus play-by-play success rate, blended by weights fit on past seasons."),
+      ("Preseason", "Last three seasons, returning production and transfers. Fades as games are played."),
+      ("Off / Def", "Each offense vs each defense. Drives predicted totals; doesn't change the rank."),
+      ("Resume", "Wins minus what a top-25 team would expect on the same schedule. Margin ignored."),
+      ("Predictions", "Spread from ratings, total from Off/Def, win % from the model's own past misses."),
+    ] %}
+    <div class="retro-card p-3">
+      <dt class="font-varsity uppercase tracking-wider text-crimson">{{ term }}</dt>
+      <dd class="mt-1">{{ desc|safe }}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+</section>
+
+<section aria-labelledby="tested">
+  <h2 id="tested" class="font-varsity text-3xl text-crimson mb-1">What we tested</h2>
+  <p class="text-sm text-muted mb-3">Pts/game vs Vegas. Within &plusmn;0.03 is noise.</p>
+  <div class="overflow-x-auto retro-card">
+    <table class="stat-table w-full text-sm">
+      <caption class="sr-only">Model changes and their measured effect</caption>
+      <thead>
+        <tr>
+          <th scope="col" class="text-left px-4 py-2">Change</th>
+          <th scope="col" class="text-right px-4 py-2">Effect</th>
+          <th scope="col" class="text-left px-4 py-2">Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for change, effect, result, kept in [
+          ("Roster-aware preseason", "&minus;0.045", "Kept", true),
+          ("Success rate", "&minus;0.040", "Kept", true),
+          ("Off/Def split (spreads)", "&minus;0.019 &plusmn;0.022", "Noise", false),
+          ("Off/Def split (totals)", "13.7 &rarr; 12.9", "Kept", true),
+          ("Bowl margin shrink", "+0.118", "Worse", false),
+          ("EPA", "&minus;0.002", "Redundant", false),
+          ("Fumble luck removed", "&minus;0.002", "Noise", false),
+          ("Garbage-time filter", "+0.006", "Worse", false),
+        ] %}
+        <tr class="border-t border-ink/20">
+          <td class="px-4 py-2">{{ change }}</td>
+          <td class="px-4 py-2 text-right tabular-nums">{{ effect|safe }}</td>
+          <td class="px-4 py-2 font-bold {{ 'text-crimson' if kept else 'text-muted' }}">{{ result }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="limits">
+  <h2 id="limits" class="font-varsity text-3xl text-crimson mb-2">Limits</h2>
+  <p class="text-sm">
+    Early-season ratings lean on the preseason estimate. No injuries, weather or
+    opt-outs. No recruiting data yet. 2021&ndash;22 bowl results aren't in the
+    public data, so those seasons end at the conference title games.
+    Typical single-game miss is ~2 TDs.
+  </p>
+  <p class="text-xs text-muted mt-3">
+    This season: home field {{ "%+.1f"|format(model.home_field) }} pts,
+    FCS gap {{ "%+.1f"|format(model.fcs_offset) }} pts. Details: <code>docs/MODEL_SPEC.md</code>.
+  </p>
+</section>
+
+</div>
+{% endblock %}
