@@ -2,10 +2,10 @@
 {% block title %}How It Works | JowieModel FBS{% endblock %}
 
 {% macro stat(label, value, note, accent=false) %}
-<div class="retro-card p-4 {{ 'bg-crimson text-paper' if accent }}">
-  <div class="font-varsity text-xs uppercase tracking-wider {{ 'text-paper' if accent else 'text-muted' }}">{{ label }}</div>
-  <div class="text-3xl font-bold tabular-nums">{{ value }}</div>
-  <div class="text-xs {{ 'text-paper' if accent else 'text-muted' }}">{{ note }}</div>
+<div class="retro-card p-4 {{ 'stat-accent' if accent }}">
+  <div class="eyebrow">{{ label }}</div>
+  <div class="text-3xl font-extrabold tabular-nums">{{ value }}</div>
+  <div class="text-xs stat-note">{{ note }}</div>
 </div>
 {% endmacro %}
 
@@ -45,7 +45,7 @@
 <div class="max-w-4xl space-y-12">
 
 <section aria-labelledby="accuracy">
-  <h2 id="accuracy" class="font-varsity text-3xl text-crimson mb-1">Accuracy</h2>
+  <h2 id="accuracy" class="section-title text-2xl mb-1">Accuracy</h2>
   {% if card %}
   {% set p = card.pooled %}
   <p class="text-sm text-muted mb-5">
@@ -69,7 +69,7 @@
                  slices + card.per_season.items()|list) }}
 
   {% if card.tiers %}
-  <h3 class="font-varsity text-xl text-crimson mt-8 mb-2">Postseason by tier</h3>
+  <h3 class="section-title text-lg mt-8 mb-2">Postseason by tier</h3>
   {{ slice_table("Postseason accuracy by bowl tier",
                  card.tiers|dictsort|sort(attribute="1.n", reverse=true)) }}
   <p class="text-sm mt-3">
@@ -84,7 +84,7 @@
 </section>
 
 <section aria-labelledby="how">
-  <h2 id="how" class="font-varsity text-3xl text-crimson mb-3">Method</h2>
+  <h2 id="how" class="section-title text-2xl mb-3">Method</h2>
   <dl class="grid sm:grid-cols-2 gap-4 text-sm">
     {% for term, desc in [
       ("Ratings", "Every game is an equation (margin = home &minus; away + home field). All teams solved at once, so schedule strength is built in."),
@@ -95,7 +95,7 @@
       ("Predictions", "Spread from ratings, total from Off/Def, win % from the model's own past misses."),
     ] %}
     <div class="retro-card p-3">
-      <dt class="font-varsity uppercase tracking-wider text-crimson">{{ term }}</dt>
+      <dt class="section-title text-sm">{{ term }}</dt>
       <dd class="mt-1">{{ desc|safe }}</dd>
     </div>
     {% endfor %}
@@ -103,7 +103,7 @@
 </section>
 
 <section aria-labelledby="tested">
-  <h2 id="tested" class="font-varsity text-3xl text-crimson mb-1">What we tested</h2>
+  <h2 id="tested" class="section-title text-2xl mb-1">What we tested</h2>
   <p class="text-sm text-muted mb-3">Pts/game vs Vegas. Within &plusmn;0.03 is noise.</p>
   <div class="overflow-x-auto retro-card">
     <table class="stat-table w-full text-sm">
@@ -141,7 +141,7 @@
 </section>
 
 <section aria-labelledby="limits">
-  <h2 id="limits" class="font-varsity text-3xl text-crimson mb-2">Limits</h2>
+  <h2 id="limits" class="section-title text-2xl mb-2">Limits</h2>
   <p class="text-sm">
     Early-season ratings lean on the preseason estimate. No injuries, weather or
     opt-outs, because there's no historical data to test them against.

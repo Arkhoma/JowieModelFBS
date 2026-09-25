@@ -3,41 +3,40 @@
 
 {% block content %}
 
-<div class="flex flex-wrap items-end justify-between gap-4 mb-5">
+<div class="flex flex-wrap items-end justify-between gap-4 mb-6">
   <div>
-    <h2 class="font-varsity text-3xl text-crimson">{{ season }} Rankings</h2>
+    <h2 class="page-title text-3xl sm:text-4xl">{{ season }} Rankings</h2>
     <p class="text-sm text-muted mt-1">
-      {{ n_games }} games through {{ "the postseason" if has_postseason else "week %d"|format(max_week) }}.
-      Sorted by <strong class="text-ink">{{ sort }}</strong>.
+      {{ n_games }} games through {{ "the postseason" if has_postseason else "week %d"|format(max_week) }}
     </p>
   </div>
 
-  <nav aria-label="Choose season">
-    <label class="font-varsity uppercase text-xs text-muted block mb-1">Season</label>
-    <div class="flex flex-wrap gap-1">
+  <details class="menu">
+    <summary class="retro-btn retro-btn-ghost px-3 py-1.5 text-sm">
+      <span class="sr-only">Season:</span>{{ season }}
+    </summary>
+    <nav class="menu-list retro-card" aria-label="Choose season">
       {% for s in seasons|reverse %}
-      <a href="{{ rank_url(s, sort) }}"
-         {% if s == season %}aria-current="true"{% endif %}
-         class="retro-btn px-2.5 py-1 text-xs {% if s != season %}retro-btn-ghost{% endif %}">{{ s }}</a>
+      <a href="{{ rank_url(s, sort) }}" class="tabular-nums"
+         {% if s == season %}aria-current="true"{% endif %}>{{ s }}</a>
       {% endfor %}
-    </div>
-  </nav>
+    </nav>
+  </details>
 </div>
 
-<p class="text-sm mb-4">
-  <strong class="text-crimson">Predictive</strong>: who wins on a neutral field.
-  <strong class="text-crimson">Resume</strong>: who has earned the most, wins only.
-  Never averaged. <a href="{{ nav.about }}" class="underline text-crimson">How it works</a>
-</p>
-
-<nav class="flex flex-wrap gap-2 mb-5" aria-label="Sort rankings by rating type">
-  {% for key, label in [("predictive", "Predictive"), ("resume", "Resume"),
-                        ("offense", "Offense"), ("defense", "Defense")] %}
-  <a href="{{ rank_url(season, key) }}"
-     {% if sort == key %}aria-current="true"{% endif %}
-     class="retro-btn px-3 py-1.5 text-sm {% if sort != key %}retro-btn-ghost{% endif %}">{{ label }}</a>
-  {% endfor %}
-</nav>
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <nav class="segmented" aria-label="Sort rankings by">
+    {% for key, label in [("predictive", "Predictive"), ("resume", "Resume"),
+                          ("offense", "Offense"), ("defense", "Defense")] %}
+    <a href="{{ rank_url(season, key) }}"
+       {% if sort == key %}aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <p class="text-xs text-muted">
+    <strong class="text-ink">Predictive</strong> = who wins on a neutral field.
+    <strong class="text-ink">Resume</strong> = who earned the most.
+  </p>
+</div>
 
 <div class="overflow-x-auto retro-card">
   <table class="stat-table w-full text-sm">
@@ -86,10 +85,9 @@
 </div>
 
 <p class="text-xs text-muted mt-4">
-  Ratings are points vs an average FBS team; bigger is better. Resume = wins
-  above a top-25 team's expected wins. Win/loss % = that team's chance of
-  winning the same game (low next to a win is good). Off/Def don't affect the
-  rank. Crimson bar = top 12.
+  Ratings are points vs an average FBS team. Resume = wins above what a
+  top-25 team would expect. Off/Def don't affect the rank. Crimson bar = top 12.
+  <a href="{{ nav.about }}" class="underline text-crimson">How it works</a>
 </p>
 
 {% endblock %}

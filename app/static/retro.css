@@ -1,97 +1,176 @@
-/* JowieModel FBS -- 90s collegiate program look, cream and crimson.
+/* JowieModel FBS -- clean 90s sports-page look. Crimson primary on cream.
    Palette lives in tailwind.config (base.html); keep these hexes in sync:
-     cream #f5efe0   card #fffbf2   ink #1c1a17
-     crimson #a51c30 crimson-dark #7d1523
-   No gold on purpose: crimson + gold reads as USC. */
+     cream #f5efe0   card #fffbf2   ink #1c1a17   line #d8cfbd
+     crimson #a51c30 crimson-dark #7d1523 crimson-light #f3dde0
+   One typeface (Archivo); weight and case carry the hierarchy. */
 
-/* Faint ruled-paper texture, like a stat sheet. */
-body {
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0 27px, rgba(165, 28, 48, .06) 27px 28px);
+/* ---- Header ------------------------------------------------------- */
+.wordmark {
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -.01em;
+  text-shadow: 2px 2px 0 #7d1523;
+}
+.wordmark-badge {
+  display: inline-block;
+  margin-left: .4rem;
+  padding: .15rem .4rem;
+  font-size: .5em;
+  font-style: normal;
+  letter-spacing: .08em;
+  vertical-align: middle;
+  background: #f5efe0;
+  color: #a51c30;
+  text-shadow: none;
+  transform: skewX(-10deg);
+}
+/* Thin cream / ink pinstripe under the header, a nod to 90s broadcasts. */
+.header-stripe {
+  height: 6px;
+  background: linear-gradient(#f5efe0 0 2px, #1c1a17 2px 4px, #7d1523 4px);
 }
 
-/* Cream-and-crimson pennant stripe along the very top. */
-.pennant-stripe {
-  height: 10px;
-  background: repeating-linear-gradient(135deg,
-    #f5efe0 0 14px, #7d1523 14px 28px);
+.nav-tab { color: #f5efe0; border-bottom: 3px solid transparent; }
+.nav-tab:hover { background: #7d1523; }
+.nav-tab[aria-current="page"] { border-bottom-color: #f5efe0; background: #7d1523; }
+
+/* ---- Headings ----------------------------------------------------- */
+.page-title {
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -.01em;
+  color: #a51c30;
+  line-height: 1.1;
+}
+.section-title {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #a51c30;
+}
+.eyebrow {
+  font-weight: 600;
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #5f574b;
 }
 
-.varsity-shadow { text-shadow: 3px 3px 0 #1c1a17, 5px 5px 0 #7d1523; }
-
-/* Folder-style tabs hanging off the header. */
-.retro-tab {
-  background: #7d1523;
-  color: #f5efe0;
-  border: 3px solid #f5efe0;
-  border-bottom: none;
-}
-.retro-tab:hover { background: #1c1a17; }
-.retro-tab-active,
-.retro-tab-active:hover { background: #f5efe0; color: #a51c30; }
-
-/* Chunky "index card" panel used throughout. */
+/* ---- Panels and buttons ------------------------------------------ */
 .retro-card {
   background: #fffbf2;
-  border: 3px solid #1c1a17;
-  box-shadow: 6px 6px 0 #a51c30;
+  border: 2px solid #1c1a17;
+  box-shadow: 4px 4px 0 #a51c30;
 }
 
-/* Beveled Win95-era button. */
+/* Headline stat card: crimson fill, everything inside cream. */
+.stat-note { color: #5f574b; }
+.retro-card.stat-accent { background: #a51c30; color: #f5efe0; box-shadow: 4px 4px 0 #1c1a17; }
+.stat-accent .eyebrow, .stat-accent .stat-note { color: #f5efe0; }
+
 .retro-btn {
   background: #a51c30;
   color: #f5efe0;
-  border: 3px outset #d9a3ab;
-  font-family: "Graduate", Georgia, serif;
+  border: 2px solid #a51c30;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: .05em;
 }
-.retro-btn:hover { background: #7d1523; }
-.retro-btn:active { border-style: inset; }
-.retro-btn-ghost { background: #fffbf2; color: #a51c30; border-color: #a51c30; }
-.retro-btn-ghost:hover { background: #f5efe0; }
-.retro-btn[aria-current="true"] { background: #1c1a17; color: #f5efe0; }
+.retro-btn:hover { background: #7d1523; border-color: #7d1523; }
+.retro-btn-ghost { background: #fffbf2; color: #a51c30; }
+.retro-btn-ghost:hover { background: #f3dde0; color: #7d1523; }
+
+/* Segmented control (sort tabs). */
+.segmented { display: inline-flex; border: 2px solid #a51c30; background: #fffbf2; }
+.segmented a {
+  padding: .4rem .9rem;
+  font-weight: 600;
+  font-size: .875rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #a51c30;
+}
+.segmented a + a { border-left: 2px solid #a51c30; }
+.segmented a:hover { background: #f3dde0; }
+.segmented a[aria-current="true"] { background: #a51c30; color: #f5efe0; }
+
+/* Season picker: a native <details> menu, works without JavaScript. */
+.menu { position: relative; }
+.menu > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary::after { content: "\25BE"; font-size: .8em; }
+.menu[open] > summary::after { content: "\25B4"; }
+.menu-list {
+  position: absolute;
+  right: 0;
+  z-index: 30;
+  margin-top: .35rem;
+  min-width: 100%;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+.menu-list a { display: block; padding: .5rem 1rem; text-align: right; }
+.menu-list a:hover { background: #f3dde0; }
+.menu-list a[aria-current="true"] { background: #a51c30; color: #f5efe0; font-weight: 600; }
 
 /* Scoreboard digits: cream on black, crimson frame. */
 .scoreboard {
   background: #111;
   color: #f5efe0;
-  font-family: "Courier Prime", monospace;
-  border: 4px ridge #a51c30;
+  border-bottom: 4px solid #a51c30;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Visible keyboard focus everywhere (WCAG 2.4.7 / 2.4.11). */
 a:focus-visible, button:focus-visible, input:focus-visible,
-select:focus-visible, [role="option"]:focus-visible {
+select:focus-visible, summary:focus-visible, [role="option"]:focus-visible {
   outline: 3px solid #1c1a17;
   outline-offset: 2px;
   box-shadow: 0 0 0 6px #f5efe0;
 }
 
-/* Zebra rows like a printed stat table. Rows get an explicit background so
-   the sticky rank/team columns cover what scrolls underneath them. */
+/* ---- Stat tables -------------------------------------------------- */
+/* Rows get an explicit background so the pinned rank/team columns cover
+   whatever scrolls underneath them. */
 .stat-table tbody tr { background: #fffbf2; }
-.stat-table tbody tr:nth-child(even) { background: #f5efe0; }
-.stat-table thead, .stat-table thead th { background: #1c1a17; color: #f5efe0; }
-.stat-table th { font-family: "Graduate", Georgia, serif; font-weight: 400;
-                 letter-spacing: .05em; }
-.stat-table tr.top12 td:first-child { box-shadow: inset 5px 0 0 #a51c30; }
+.stat-table tbody tr:nth-child(even) { background: #f7f1e3; }
+.stat-table thead th {
+  background: #a51c30;
+  color: #f5efe0;
+  font-weight: 600;
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.stat-table tr.top12 td:first-child { box-shadow: inset 4px 0 0 #a51c30; }
 
 /* Wide tables scroll sideways on phones; rank + team stay pinned. */
 .stat-table .pin-rank { position: sticky; left: 0; width: 3rem; min-width: 3rem;
                         background: inherit; z-index: 1; }
 .stat-table .pin-team { position: sticky; left: 3rem; background: inherit;
-                        z-index: 1; box-shadow: 3px 0 0 rgba(28, 26, 23, .15); }
+                        z-index: 1; box-shadow: 3px 0 0 rgba(28, 26, 23, .12); }
+/* Header cells need their own opaque fill: `inherit` there resolves to the
+   transparent <tr>, which let scrolled headings show through. */
+.stat-table thead .pin-rank,
+.stat-table thead .pin-team { background: #a51c30; z-index: 2; }
 
 @media (max-width: 639px) {
-  .varsity-shadow { text-shadow: 2px 2px 0 #1c1a17, 3px 3px 0 #7d1523; }
   .stat-table th, .stat-table td { padding-left: .5rem; padding-right: .5rem; }
+  .segmented a { padding: .4rem .6rem; font-size: .8rem; }
 }
 
-/* Team search combobox. */
+/* ---- Team search combobox ----------------------------------------- */
 .combo-list { max-height: 16rem; overflow-y: auto; }
 .combo-list [aria-selected="true"] { background: #a51c30; color: #f5efe0; }
+.combo-list [aria-selected="true"] .text-muted { color: #f3dde0; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .retro-btn, .retro-tab { transition: background-color .12s; }
+  .retro-btn, .nav-tab, .segmented a { transition: background-color .12s; }
 }

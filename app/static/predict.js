@@ -116,7 +116,7 @@
         </div>
         <div class="p-5 grid sm:grid-cols-2 gap-6">
           <div>
-            <h3 class="font-varsity uppercase tracking-wider text-crimson mb-3">Win probability</h3>
+            <h3 class="section-title text-sm mb-3">Win probability</h3>
             ${rows.map(([team, pct, bar]) => `
               <div class="mb-3">
                 <div class="flex justify-between text-sm mb-1">
@@ -128,7 +128,7 @@
               </div>`).join("")}
           </div>
           <div>
-            <h3 class="font-varsity uppercase tracking-wider text-crimson mb-3">Why</h3>
+            <h3 class="section-title text-sm mb-3">Why</h3>
             <table class="w-full text-sm"><tbody>
               ${p.factors.map(([label, value]) => `
                 <tr class="border-b border-dashed border-muted last:border-0">
@@ -138,7 +138,7 @@
             </tbody></table>
           </div>
         </div>
-        <p class="border-t-[3px] border-ink bg-paper px-5 py-3 text-xs">
+        <p class="border-t-2 border-ink bg-paper px-5 py-3 text-xs">
           <strong>&plusmn;${fmt(p.errorStd, 1)} points</strong>
           typical miss. Anything inside two touchdowns is close to a coin flip.
         </p>

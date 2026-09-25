@@ -3,14 +3,14 @@
 
 {% macro team_picker(id, label, default) %}
 <div data-combobox class="relative">
-  <label for="{{ id }}" class="block font-varsity uppercase tracking-wider text-sm mb-1.5">{{ label }}</label>
+  <label for="{{ id }}" class="block eyebrow mb-1.5">{{ label }}</label>
   <div class="flex">
     <input id="{{ id }}" name="{{ id }}" type="text" required autocomplete="off"
            role="combobox" aria-autocomplete="list" aria-expanded="false"
            aria-controls="{{ id }}-list" value="{{ default }}"
            placeholder="Search teams..."
            class="flex-1 min-w-0 bg-card border-ink border-r-0 px-3 py-2 text-base
-                  border-[3px] focus:outline-none">
+                  border-2 focus:outline-none">
     <button type="button" tabindex="-1" aria-label="Show all teams"
             aria-controls="{{ id }}-list" aria-expanded="false"
             class="retro-btn px-4 min-h-[44px]">&#9660;</button>
@@ -20,7 +20,7 @@
     {% for t in teams %}
     <li id="{{ id }}-opt-{{ loop.index }}" role="option" aria-selected="false"
         data-value="{{ t.name }}"
-        data-search="{{ (t.name ~ ' ' ~ t.conference)|lower }}"
+        data-conference="{{ t.conference|lower }}"
         class="px-3 py-2.5 cursor-pointer flex justify-between gap-3 hover:bg-paper">
       <span><span class="text-muted tabular-nums">#{{ t.rank }}</span> {{ t.name }}</span>
       <span class="text-xs text-muted">{{ t.record }} &middot; {{ t.conference }}</span>
@@ -33,8 +33,8 @@
 
 {% block content %}
 
-<h2 class="font-varsity text-3xl text-crimson mb-1">Predict a Game</h2>
-<p class="text-sm text-muted mb-6">Any two FBS teams, real or hypothetical. Type to search, or open the list.</p>
+<h2 class="page-title text-3xl sm:text-4xl mb-1">Predict a Game</h2>
+<p class="text-sm text-muted mb-6">Any two FBS teams. Type to search or open the list.</p>
 
 {% if static_build %}
 <form id="predict-form" class="retro-card p-5 mb-8">
