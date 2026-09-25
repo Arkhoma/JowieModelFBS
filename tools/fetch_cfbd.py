@@ -151,6 +151,7 @@ def grab(label: str, path: str, params: dict, *parts: str) -> None:
 
 # The transfer portal endpoint has no data before this season.
 FIRST_PORTAL_SEASON = 2021
+FIRST_COACH_YEAR = 2008
 
 
 def fetch_priors(year: int) -> None:
@@ -273,6 +274,12 @@ def main() -> None:
     print("Safe to Ctrl-C -- re-running skips what is already saved.")
     for year in args.years:
         fetch_season(year, args.only)
+    if "priors" in args.only:
+        # Every coach's history in ONE call. Delete data/raw/coaches.json.gz
+        # after the season starts so new hires are picked up.
+        grab("coaches", "/coaches",
+             {"minYear": FIRST_COACH_YEAR, "maxYear": max(args.years)},
+             "coaches")
     write_manifest(args.years)
 
 

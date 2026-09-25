@@ -13,6 +13,13 @@ unshrink factor. This one predicts each team's coming season from:
                     not.
   ret_* , portal    level effects: returning experience and incoming
                     transfers help regardless of last year's rating.
+  talent            247 team talent composite (CFBD), per 100 points --
+                    the recruiting stars of this season's actual roster.
+  new_coach,        a head coach who did not return for week 1, alone and
+  r1 x new_coach    scaled by last season's rating (a new coach inherits
+                    less of the old edge). tools/screen_priors.py: these
+                    two beat recruiting classes, CFBD returning PPA and
+                    portal ratings, which added nothing held out.
 
 Target: next season's final ridge rating. Output is multiplied by the
 same measured UNSHRINK as before, because the target itself is shrunk.
@@ -27,6 +34,7 @@ from functools import lru_cache
 
 import numpy as np
 
+from . import cfbd_priors
 from .games import load_season, team_divisions
 from .prior import DEFAULT_UNSHRINK, build_prior
 from .returning import returning_production
@@ -34,7 +42,9 @@ from .ridge import fit
 
 FIT_PARAMS = {"lambda_": 5.0, "margin_scale": 28.0, "halflife": 1e6}
 FEATURES = ("r1", "r2", "r3", "r1_ret_off", "r1_ret_def", "r1_ret_qb",
-            "ret_off", "ret_def", "ret_qb", "portal")
+            "ret_off", "ret_def", "ret_qb", "portal",
+            "talent", "new_coach", "r1_new_coach")
+TALENT_UNIT = 100.0
 FIRST_TARGET_SEASON = 2016
 RIDGE = 1.0   # light, just to keep correlated history terms stable
 
@@ -46,6 +56,13 @@ def _final(season: int) -> tuple[dict[str, float], dict[str, str]]:
     except (FileNotFoundError, ValueError):
         return {}, {}
     return dict(model.ratings), dict(model.divisions)
+
+
+def _centred(values: dict[str, float], teams) -> dict[str, float]:
+    """Values minus their mean over `teams`; missing teams get 0."""
+    known = [values[t] for t in teams if t in values]
+    mean = float(np.mean(known)) if known else 0.0
+    return {t: values[t] - mean for t in teams if t in values}
 
 
 def _features(season: int) -> dict[str, np.ndarray]:
@@ -67,9 +84,13 @@ def _features(season: int) -> dict[str, np.ndarray]:
              for k in ("ret_off", "ret_def", "ret_qb", "portal")}
 
     rows: dict[str, np.ndarray] = {}
-    for team, rating in r1.items():
-        if div1.get(team) != "fbs" or now.get(team, "fbs") != "fbs":
-            continue
+    eligible = [t for t in r1
+                if div1.get(t) == "fbs" and now.get(t, "fbs") == "fbs"]
+    talent = _centred({t: v / TALENT_UNIT for t, v in
+                       cfbd_priors.talent(season).items()}, eligible)
+    coach = _centred(cfbd_priors.new_coach(season), eligible)
+    for team in eligible:
+        rating = r1[team]
         back2 = r2.get(team, rating)
         back3 = r3.get(team, back2)
         info = returning.get(team)
@@ -81,6 +102,8 @@ def _features(season: int) -> dict[str, np.ndarray]:
             rating * centred["ret_qb"],
             centred["ret_off"], centred["ret_def"], centred["ret_qb"],
             centred["portal"],
+            talent.get(team, 0.0),
+            coach.get(team, 0.0), rating * coach.get(team, 0.0),
         ])
     return rows
 
