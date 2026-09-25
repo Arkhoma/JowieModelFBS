@@ -89,7 +89,7 @@
     {% for term, desc in [
       ("Ratings", "Every game is an equation (margin = home &minus; away + home field). All teams solved at once, so schedule strength is built in."),
       ("Inputs", "Scoring margin plus play-by-play success rate, blended by weights fit on past seasons."),
-      ("Preseason", "Last three seasons, returning production and transfers. Fades as games are played."),
+      ("Preseason", "Last three seasons, returning production, transfers, roster talent (247 composite) and coaching changes. Fades as games are played."),
       ("Off / Def", "Each offense vs each defense. Drives predicted totals; doesn't change the rank."),
       ("Resume", "Wins minus what a top-25 team would expect on the same schedule. Margin ignored."),
       ("Predictions", "Spread from ratings, total from Off/Def, win % from the model's own past misses."),
@@ -141,8 +141,7 @@
   <h2 id="limits" class="font-varsity text-3xl text-crimson mb-2">Limits</h2>
   <p class="text-sm">
     Early-season ratings lean on the preseason estimate. No injuries, weather or
-    opt-outs. No recruiting data yet. 2021&ndash;22 bowl results aren't in the
-    public data, so those seasons end at the conference title games.
+    opt-outs, because there's no historical data to test them against.
     Typical single-game miss is ~2 TDs.
   </p>
   <p class="text-xs text-muted mt-3">

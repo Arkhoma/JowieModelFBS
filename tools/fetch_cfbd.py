@@ -169,12 +169,18 @@ def fetch_priors(year: int) -> None:
         grab("transfer portal", "/player/portal", {"year": year}, y, "portal")
 
 
+def fetch_games(year: int) -> None:
+    """Just the results (1 call). The mirror lacks 2021-22 bowls."""
+    grab("games", "/games", {"year": year, "seasonType": "both"},
+         str(year), "games")
+
+
 def fetch_context(year: int) -> None:
     """Schedules, results, polls, lines and published ratings."""
     y = str(year)
     grab("teams (FBS)", "/teams/fbs", {"year": year}, y, "teams")
     grab("calendar", "/calendar", {"year": year}, y, "calendar")
-    grab("games", "/games", {"year": year, "seasonType": "both"}, y, "games")
+    fetch_games(year)
     grab("team box scores", "/games/teams",
          {"year": year, "seasonType": "both"}, y, "games_teams")
     grab("drives", "/drives",
@@ -204,7 +210,8 @@ def fetch_plays(year: int) -> None:
              y, "plays", f"postseason_{week:02d}")
 
 
-GROUPS = {"priors": fetch_priors, "context": fetch_context, "plays": fetch_plays}
+GROUPS = {"priors": fetch_priors, "context": fetch_context, "plays": fetch_plays,
+          "games": fetch_games}
 
 
 def fetch_season(year: int, groups: list[str]) -> None:

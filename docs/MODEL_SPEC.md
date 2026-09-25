@@ -745,10 +745,8 @@ line's 73.8% (was 72.8%). Improvement holds in all five seasons.
 ### Still open
 
 - **Offense/defense split** -- built and measured 2026-09-24, see below.
-- **Recruiting talent** is the prior input SP+ has that we lack. Not in
-  the mirror; roster `recruit_ids` exist but without star ratings. A
-  CFBD key now exists (in the gitignored `.env`) but CFBD is DNS-blocked
-  here; `tools/fetch_cfbd.py` must run off-network.
+- **Recruiting talent** -- DONE 2026-09-25, see "CFBD roster priors" at
+  the end. CFBD turned out to be reachable via proxy.wal-mart.com.
 - Early season is still where the gap lives (0.53 vs 0.20).
 
 ---
@@ -855,4 +853,58 @@ so margins are not too extreme; shrinking them loses 0.118 held out.
 The line wins on bowls because it knows opt-outs, coaching changes and
 motivation, which game results cannot see. Not fixed by tuning; 146 games
 is too few to fit a bowl-specific correction honestly.
+
+---
+
+## CFBD roster priors: measured 2026-09-25
+
+CFBD is reachable after all: via `proxy.wal-mart.com:8080` (the PAC
+file's route), not `sysproxy`. `set HTTPS_PROXY=http://proxy.wal-mart.com:8080`
+then `tools/fetch_cfbd.py --only priors`. Free tier 1,000 calls/month.
+
+**Candidates** (`cfbrank/cfbd_priors.py`), screened by
+`tools/screen_priors.py`: held-out RMSE of each team's final rating,
+leave-one-season-out, 1,297 team-seasons 2016-2025.
+
+| added to current prior | RMSE 2021+ change |
+|---|---|
+| 247 team talent composite | -0.097 |
+| recruiting classes (4-yr mean) | -0.094 |
+| coaching change (+ x r1) | -0.031 |
+| **talent + coaching change** | **-0.120** (best) |
+| talent + recruiting + coach | -0.105 |
+| portal net 247 rating | -0.002 (noise) |
+| CFBD returning PPA % | -0.001 (noise) |
+
+Recruiting and talent overlap almost completely; talent alone is simpler
+and at least as good. Portal ratings and CFBD returning PPA add nothing
+over `returning.py`, which already measures actual production.
+
+**Coaching-change leakage trap.** "This season's main coach differs"
+flags coaches fired mid-season, i.e. it knows the season went badly.
+`new_coach` flags only a coach from last season who coached ZERO games
+this season -- knowable before week 1. Tested in
+`tests/test_cfbd_priors.py`.
+
+**Shipped** in `prior_model.FEATURES`: `talent` (per 100 pts, centred),
+`new_coach`, `r1_new_coach`. 2026 weights: talent +0.51 per 100; a new
+coach -1.34 pts and 13% less carryover of last season's edge.
+
+**Walk-forward vs closing line**, same 5,215 games
+(`tools/compare_benchmarks.py`):
+
+| slice | before | after | change | +/- |
+|---|---|---|---|---|
+| all | +0.370 | +0.342 | **-0.029** | 0.019 |
+| weeks 4-8 | +0.517 | +0.471 | **-0.046** | 0.035 |
+| weeks 9+ | +0.207 | +0.194 | -0.013 | 0.020 |
+| postseason | +1.084 | +1.029 | -0.055 | 0.096 |
+
+Four of five seasons improved (2022 flat). With 2021-22 bowls now loaded
+from CFBD the benchmark is 5,299 games: +0.35 pooled, postseason +0.89
+over 230 games, CFP -0.11 over 31 (level with the line, wide CI).
+
+**Still zero independent information vs the market**
+(`tools/check_market_blend.py`): a leave-one-season-out blend of ours +
+line beats the line alone by +0.004 +/- 0.014 -- nothing.
 

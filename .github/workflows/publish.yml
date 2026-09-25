@@ -61,7 +61,9 @@ jobs:
       # tier's 1,000 monthly calls once, then almost nothing.
       - name: Fetch CFBD prior inputs
         if: env.CFBD_API_KEY != ''
-        run: python tools/fetch_cfbd.py --only priors --years $(seq 2014 $(date +%Y))
+        run: |
+          python tools/fetch_cfbd.py --only priors --years $(seq 2014 $(date +%Y))
+          python tools/fetch_cfbd.py --only games --years 2021 2022
 
       - name: Tests
         run: python -m pytest -q
