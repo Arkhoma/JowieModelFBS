@@ -908,3 +908,9 @@ over 230 games, CFP -0.11 over 31 (level with the line, wide CI).
 (`tools/check_market_blend.py`): a leave-one-season-out blend of ours +
 line beats the line alone by +0.004 +/- 0.014 -- nothing.
 
+**Prior strength re-tuned** (`tools/tune_prior_strength.py`, 5,299
+games): margin lambda 3.5 / 5 / 7.5 / 10 -> gap +0.365 / **+0.346** /
++0.363 / +0.406; EPA relative lambda 6 vs 4 at lambda 7.5: +0.362 vs
++0.363. The current 5 / 4 stays -- a better prior did not earn a
+stronger grip.
+
