@@ -75,7 +75,7 @@
   <p class="text-sm mt-3">
     The postseason gap is almost all in lower-tier bowls, where opt-outs and
     motivation matter and aren't in the data. On CFP games we're even with
-    Vegas (small sample). NY6 outside the playoff is only 4 games.
+    Vegas (small sample).
   </p>
   {% endif %}
   {% else %}
@@ -118,6 +118,7 @@
       <tbody>
         {% for change, effect, result, kept in [
           ("Roster-aware preseason", "&minus;0.045", "Kept", true),
+          ("Talent + coaching change", "&minus;0.029", "Kept", true),
           ("Success rate", "&minus;0.040", "Kept", true),
           ("Off/Def split (spreads)", "&minus;0.019 &plusmn;0.022", "Noise", false),
           ("Off/Def split (totals)", "13.7 &rarr; 12.9", "Kept", true),
@@ -125,6 +126,8 @@
           ("EPA", "&minus;0.002", "Redundant", false),
           ("Fumble luck removed", "&minus;0.002", "Noise", false),
           ("Garbage-time filter", "+0.006", "Worse", false),
+          ("Recruiting classes", "same as talent", "Redundant", false),
+          ("Portal star ratings", "&asymp;0", "Noise", false),
         ] %}
         <tr class="border-t border-ink/20">
           <td class="px-4 py-2">{{ change }}</td>
