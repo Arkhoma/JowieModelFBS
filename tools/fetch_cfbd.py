@@ -12,6 +12,13 @@ Usage:
 
     python fetch_cfbd.py --smoke                  # 1 cheap call, verify access
     python fetch_cfbd.py --years 2022 2023 2024 2025 2026
+    python fetch_cfbd.py --only priors --years 2014 2015  # roster data only
+
+Behind a corporate proxy, point urllib at it first, e.g.
+    set HTTPS_PROXY=http://your.proxy:8080
+
+The free tier is 1,000 calls/month. A full season costs ~32 calls (most of
+it play-by-play); `--only priors` costs ~5.
 
 Resumable: already-downloaded files are skipped, so a crash or Ctrl-C costs
 you nothing. Re-run the same command to pick up where it left off.
@@ -142,11 +149,28 @@ def grab(label: str, path: str, params: dict, *parts: str) -> None:
     time.sleep(SLEEP_BETWEEN_CALLS)
 
 
-def fetch_season(year: int) -> None:
-    print(f"\n=== {year} ===")
-    y = str(year)
+# The transfer portal endpoint has no data before this season.
+FIRST_PORTAL_SEASON = 2021
 
-    # --- Season-level context -------------------------------------------
+
+def fetch_priors(year: int) -> None:
+    """Everything known about a roster before kickoff."""
+    y = str(year)
+    # Returning production = preseason prior. Talent = recruiting baseline.
+    grab("returning production", "/player/returning", {"year": year},
+         y, "returning_production")
+    grab("team talent", "/talent", {"year": year}, y, "talent")
+    # Individual recruits join to rosters via recruit_ids.
+    grab("recruits", "/recruiting/players", {"year": year}, y, "recruits")
+    grab("recruiting classes", "/recruiting/teams", {"year": year},
+         y, "recruiting_teams")
+    if year >= FIRST_PORTAL_SEASON:
+        grab("transfer portal", "/player/portal", {"year": year}, y, "portal")
+
+
+def fetch_context(year: int) -> None:
+    """Schedules, results, polls, lines and published ratings."""
+    y = str(year)
     grab("teams (FBS)", "/teams/fbs", {"year": year}, y, "teams")
     grab("calendar", "/calendar", {"year": year}, y, "calendar")
     grab("games", "/games", {"year": year, "seasonType": "both"}, y, "games")
@@ -155,11 +179,6 @@ def fetch_season(year: int) -> None:
     grab("drives", "/drives",
          {"year": year, "seasonType": "both"}, y, "drives")
 
-    # --- Priors and comparison baselines --------------------------------
-    # Returning production = preseason prior. Talent = recruiting baseline.
-    grab("returning production", "/player/returning", {"year": year},
-         y, "returning_production")
-    grab("team talent", "/talent", {"year": year}, y, "talent")
     # AP / Coaches polls -- this is what we benchmark the model against.
     grab("polls", "/rankings", {"year": year, "seasonType": "both"}, y, "polls")
     # Betting lines: the sharpest public predictor, our accuracy yardstick.
@@ -169,7 +188,10 @@ def fetch_season(year: int) -> None:
     grab("SP+ ratings", "/ratings/sp", {"year": year}, y, "ratings_sp")
     grab("SRS ratings", "/ratings/srs", {"year": year}, y, "ratings_srs")
 
-    # --- Play-by-play: the big one, paginated by week -------------------
+
+def fetch_plays(year: int) -> None:
+    """Play-by-play: the big one, paginated by week (~21 calls)."""
+    y = str(year)
     for week in REGULAR_WEEKS:
         grab(f"plays wk{week:02d}", "/plays",
              {"year": year, "week": week, "seasonType": "regular"},
@@ -179,6 +201,15 @@ def fetch_season(year: int) -> None:
         grab(f"plays post wk{week}", "/plays",
              {"year": year, "week": week, "seasonType": "postseason"},
              y, "plays", f"postseason_{week:02d}")
+
+
+GROUPS = {"priors": fetch_priors, "context": fetch_context, "plays": fetch_plays}
+
+
+def fetch_season(year: int, groups: list[str]) -> None:
+    print(f"\n=== {year} ===")
+    for name in groups:
+        GROUPS[name](year)
 
 
 def write_manifest(years: list[int]) -> None:
@@ -229,6 +260,9 @@ def main() -> None:
                         help="Seasons to download.")
     parser.add_argument("--smoke", action="store_true",
                         help="Run a single test call and exit.")
+    parser.add_argument("--only", nargs="+", choices=list(GROUPS),
+                        default=list(GROUPS),
+                        help="Endpoint groups to fetch (default: all).")
     args = parser.parse_args()
 
     if args.smoke:
@@ -238,7 +272,7 @@ def main() -> None:
     print(f"Downloading to: {OUT_ROOT}")
     print("Safe to Ctrl-C -- re-running skips what is already saved.")
     for year in args.years:
-        fetch_season(year)
+        fetch_season(year, args.only)
     write_manifest(args.years)
 
 
