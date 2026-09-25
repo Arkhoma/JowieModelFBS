@@ -129,13 +129,24 @@ def save(payload: list | dict, *parts: str) -> int:
     return len(payload) if isinstance(payload, list) else 1
 
 
-def already_have(*parts: str) -> bool:
-    return OUT_ROOT.joinpath(*parts).with_suffix(".json.gz").exists()
+def already_have(*parts: str, max_age_days: float | None = None) -> bool:
+    """On disk, and (if max_age_days is set) fetched recently enough."""
+    path = OUT_ROOT.joinpath(*parts).with_suffix(".json.gz")
+    if not path.exists():
+        return False
+    if max_age_days is None:
+        return True
+    return (time.time() - path.stat().st_mtime) < max_age_days * 86_400
 
 
-def grab(label: str, path: str, params: dict, *parts: str) -> None:
-    """Fetch one endpoint and persist it, skipping if already on disk."""
-    if already_have(*parts):
+def grab(label: str, path: str, params: dict, *parts: str,
+         max_age_days: float | None = None) -> None:
+    """Fetch one endpoint and persist it, skipping if already on disk.
+
+    Past seasons never change, so by default a saved file is kept forever.
+    Pass max_age_days for data that is still moving (see CURRENT_REFRESH_DAYS).
+    """
+    if already_have(*parts, max_age_days=max_age_days):
         print(f"  [skip] {label}")
         return
     print(f"  [get ] {label} ...", end=" ", flush=True)
@@ -152,30 +163,39 @@ def grab(label: str, path: str, params: dict, *parts: str) -> None:
 # The transfer portal endpoint has no data before this season.
 FIRST_PORTAL_SEASON = 2021
 FIRST_COACH_YEAR = 2008
+# The current season's rosters, talent, portal and coaching staffs keep
+# changing all offseason (and coach records only gain a season once games
+# are coached), so those files are refetched when older than this. Costs
+# ~6 calls a week; past seasons are never refetched.
+CURRENT_REFRESH_DAYS = 7
 
 
-def fetch_priors(year: int) -> None:
+def fetch_priors(year: int, current: bool = False) -> None:
     """Everything known about a roster before kickoff."""
     y = str(year)
+    age = CURRENT_REFRESH_DAYS if current else None
     # Returning production = preseason prior. Talent = recruiting baseline.
     grab("returning production", "/player/returning", {"year": year},
-         y, "returning_production")
-    grab("team talent", "/talent", {"year": year}, y, "talent")
+         y, "returning_production", max_age_days=age)
+    grab("team talent", "/talent", {"year": year}, y, "talent",
+         max_age_days=age)
     # Individual recruits join to rosters via recruit_ids.
-    grab("recruits", "/recruiting/players", {"year": year}, y, "recruits")
+    grab("recruits", "/recruiting/players", {"year": year}, y, "recruits",
+         max_age_days=age)
     grab("recruiting classes", "/recruiting/teams", {"year": year},
-         y, "recruiting_teams")
+         y, "recruiting_teams", max_age_days=age)
     if year >= FIRST_PORTAL_SEASON:
-        grab("transfer portal", "/player/portal", {"year": year}, y, "portal")
+        grab("transfer portal", "/player/portal", {"year": year}, y, "portal",
+             max_age_days=age)
 
 
-def fetch_games(year: int) -> None:
+def fetch_games(year: int, current: bool = False) -> None:
     """Just the results (1 call). The mirror lacks 2021-22 bowls."""
     grab("games", "/games", {"year": year, "seasonType": "both"},
          str(year), "games")
 
 
-def fetch_context(year: int) -> None:
+def fetch_context(year: int, current: bool = False) -> None:
     """Schedules, results, polls, lines and published ratings."""
     y = str(year)
     grab("teams (FBS)", "/teams/fbs", {"year": year}, y, "teams")
@@ -196,7 +216,7 @@ def fetch_context(year: int) -> None:
     grab("SRS ratings", "/ratings/srs", {"year": year}, y, "ratings_srs")
 
 
-def fetch_plays(year: int) -> None:
+def fetch_plays(year: int, current: bool = False) -> None:
     """Play-by-play: the big one, paginated by week (~21 calls)."""
     y = str(year)
     for week in REGULAR_WEEKS:
@@ -214,10 +234,10 @@ GROUPS = {"priors": fetch_priors, "context": fetch_context, "plays": fetch_plays
           "games": fetch_games}
 
 
-def fetch_season(year: int, groups: list[str]) -> None:
-    print(f"\n=== {year} ===")
+def fetch_season(year: int, groups: list[str], current: bool) -> None:
+    print(f"\n=== {year}{' (current: refreshed weekly)' if current else ''} ===")
     for name in groups:
-        GROUPS[name](year)
+        GROUPS[name](year, current=current)
 
 
 def write_manifest(years: list[int]) -> None:
@@ -279,14 +299,15 @@ def main() -> None:
 
     print(f"Downloading to: {OUT_ROOT}")
     print("Safe to Ctrl-C -- re-running skips what is already saved.")
+    newest = max(args.years)
     for year in args.years:
-        fetch_season(year, args.only)
+        fetch_season(year, args.only, current=(year == newest))
     if "priors" in args.only:
-        # Every coach's history in ONE call. Delete data/raw/coaches.json.gz
-        # after the season starts so new hires are picked up.
+        # Every coach's history in ONE call. Refreshed weekly so new hires
+        # appear on their own -- no manual file deletion each season.
         grab("coaches", "/coaches",
-             {"minYear": FIRST_COACH_YEAR, "maxYear": max(args.years)},
-             "coaches")
+             {"minYear": FIRST_COACH_YEAR, "maxYear": newest},
+             "coaches", max_age_days=CURRENT_REFRESH_DAYS)
     write_manifest(args.years)
 
 
