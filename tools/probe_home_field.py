@@ -92,8 +92,11 @@ def features(df: pd.DataFrame) -> pd.DataFrame:
     return f.add_prefix("x_")
 
 
-def loso(df: pd.DataFrame, feats: list[str]) -> tuple[list[float], np.ndarray, float]:
+def loso(df: pd.DataFrame, feats: list[str],
+         ridge: float = 0.0) -> tuple[list[float], np.ndarray, float]:
     """Leave-one-season-out MAE gain vs a flat shift, at each shrink level.
+    `ridge` penalises the feature coefficients (not the intercept), the
+    fair way to combine many weak, overlapping signals.
     Returns (pooled gain per shrink level, per-season gains at 100%,
     95% CI half-width of the pooled 100% gain from per-game differences)."""
     total = np.zeros(len(SHRINKS))
@@ -101,7 +104,9 @@ def loso(df: pd.DataFrame, feats: list[str]) -> tuple[list[float], np.ndarray, f
     for season in sorted(df.season.unique()):
         train, test = df[df.season != season], df[df.season == season]
         X = np.column_stack([np.ones(len(train))] + [train[f] for f in feats])
-        coef, *_ = np.linalg.lstsq(X, train.resid, rcond=None)
+        penalty = np.eye(X.shape[1]) * ridge
+        penalty[0, 0] = 0.0
+        coef = np.linalg.solve(X.T @ X + penalty, X.T @ train.resid)
         flat = np.abs(test.resid - train.resid.mean())
         Xt = np.column_stack([test[f] for f in feats])
         adjusted = [np.abs(test.resid - coef[0] - Xt @ (coef[1:] * s))
@@ -167,6 +172,15 @@ def main() -> None:
         print(f"  {'+'.join(x[2:] for x in feats):40s} "
               + " / ".join(f"{g:+.3f}" for g in pooled)
               + f"  +/-{ci:.3f}  seasons won {wins}/{len(seasons)}")
+
+    print("\nALL FEATURES, ridge-shrunk (penalty in game-units), 100% strength:")
+    everything = list(feat.columns)
+    for ridge in (0, 500, 2000, 8000, 32000):
+        pooled, seasons, ci = loso(df, everything, ridge)
+        print(f"  ridge {ridge:>6}: {pooled[0]:+.3f} +/-{ci:.3f}"
+              f"  seasons won {int((seasons > 0).sum())}/{len(seasons)}")
+    print(f"  (for scale: gap to the closing line is "
+          f"{(np.abs(df.resid) - np.abs(df.mkt_resid)).mean():+.3f} on these games)")
 
     if len(sys.argv) > 1:
         cols = ["season", "week", "away_team", "ours", "line", "actual",
