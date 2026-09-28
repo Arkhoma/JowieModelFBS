@@ -132,6 +132,8 @@
    ~9:1 contrast (WCAG AA needs 4.5:1). */
 .vegas-script { background: #1f4d33; color: #f5efe0; }
 .vegas-script .section-title { color: #f5efe0; }
+/* Casino-marquee gold on felt-black text: ~11:1 contrast. */
+.script-alert { background: #f2c14e; color: #1c1a17; border: 2px dashed #1c1a17; }
 
 /* Visible keyboard focus everywhere (WCAG 2.4.7 / 2.4.11). */
 a:focus-visible, button:focus-visible, input:focus-visible,

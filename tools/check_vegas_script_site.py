@@ -16,11 +16,17 @@ from app.main import _latest_season, app  # noqa: E402
 from build_static_site import _env, build_predict  # noqa: E402
 
 season = _latest_season()
-html = TestClient(app).post("/predict", data={
-    "home_team": "Florida", "away_team": "Ole Miss", "season": season}).text
-text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
-print("LIVE:", re.search(r"([A-Z][\w ]+ by [\d.]+)", text).group(1),
-      "|", re.search(r"The Vegas Script (.+?) What", text).group(1).strip())
+client = TestClient(app)
+for home, away in (("Florida", "Ole Miss"), ("Indiana", "Northwestern"),
+                   ("Tennessee", "Texas"), ("Arkansas", "Tulsa")):
+    html = client.post("/predict", data={
+        "home_team": home, "away_team": away, "season": season}).text
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+    alert = re.search(r"(THE SCRIPT IS IN\..{0,70})", text)
+    print(f"LIVE {away} @ {home}:",
+          re.search(r"([A-Z][\w ]+ by [\d.]+)", text).group(1).split(" AT ")[-1],
+          "| script:", re.search(r"The Vegas Script (.+?) What", text).group(1).strip(),
+          "|", alert.group(1) + "..." if alert else "no alert")
 
 with tempfile.TemporaryDirectory() as out:
     build_predict(_env(), Path(out), season)

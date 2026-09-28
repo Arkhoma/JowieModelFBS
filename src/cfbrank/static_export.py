@@ -20,7 +20,7 @@ float per game in the season) and lets the browser do the same
 from __future__ import annotations
 
 from .predict import Predictor
-from .vegas_script import MARKET_WEIGHT, OURS_WEIGHT
+from .vegas_script import MARKET_WEIGHT, OURS_WEIGHT, SCRIPT_IN_POINTS
 
 
 def predictor_payload(predictor: Predictor, teams: list[str]) -> dict:
@@ -60,6 +60,7 @@ def predictor_payload(predictor: Predictor, teams: list[str]) -> dict:
         payload["vegas"] = {
             "ours_weight": OURS_WEIGHT,
             "market_weight": MARKET_WEIGHT,
+            "alert_points": SCRIPT_IN_POINTS,
             "home_field": market.home_field,
             "calibrated": {t: market.calibrated_rating(t)
                            for t in teams if t in market.ratings},

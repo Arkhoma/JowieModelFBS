@@ -79,6 +79,19 @@
       with how Vegas has priced both teams in every game so far.
       Historically ~30% closer to the final line than we are alone.
     </p>
+    {% if prediction.script_alert == "flip" %}
+    <p class="script-alert mt-3 px-3 py-2 text-sm font-bold" role="note">
+      &#128680; THE SCRIPT IS IN. Vegas has {{ prediction.vegas_favourite }} winning
+      and we don't. When that happens, the script's pick has won 61% of the time.
+      We'd love to tell you we're right. History says we're the ones getting played.
+    </p>
+    {% elif prediction.script_alert == "in" %}
+    <p class="script-alert mt-3 px-3 py-2 text-sm font-bold" role="note">
+      &#9888; THE SCRIPT IS IN. We're {{ "%.1f"|format((prediction.vegas_margin - prediction.predicted_margin)|abs) }}
+      points off what the bookies wrote. At 3+ points the script has beaten us
+      more often than not. Somebody knows something. Probably not us.
+    </p>
+    {% endif %}
   </div>
   {% endif %}
 </div>

@@ -24,6 +24,7 @@ import numpy as np
 
 from .games import Game
 from .ridge import RatingResult
+from .vegas_script import script_alert
 
 # Scoring environment. Fitted from the games supplied, not assumed.
 DEFAULT_TOTAL_POINTS = 52.0
@@ -51,6 +52,11 @@ class Prediction:
         if self.vegas_margin is None:
             return None
         return self.home_team if self.vegas_margin > 0 else self.away_team
+
+    @property
+    def script_alert(self) -> str | None:
+        """"in" / "flip" when the Vegas Script overrules us; see vegas_script."""
+        return script_alert(self.predicted_margin, self.vegas_margin)
 
     @property
     def total(self) -> float:

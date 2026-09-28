@@ -99,6 +99,26 @@
   function fmt(n, digits) { return n.toFixed(digits); }
   function fmtSigned(n, digits) { return (n >= 0 ? "+" : "") + n.toFixed(digits); }
 
+  // Mirrors cfbrank.vegas_script.script_alert.
+  function scriptAlert(p) {
+    if (p.vegas === null || Math.abs(p.vegas - p.margin) < model.vegas.alert_points) return "";
+    const fav = esc(p.vegas > 0 ? p.home : p.away);
+    if ((p.vegas > 0) !== (p.margin > 0)) {
+      return `
+          <p class="script-alert mt-3 px-3 py-2 text-sm font-bold" role="note">
+            &#128680; THE SCRIPT IS IN. Vegas has ${fav} winning
+            and we don't. When that happens, the script's pick has won 61% of the time.
+            We'd love to tell you we're right. History says we're the ones getting played.
+          </p>`;
+    }
+    return `
+          <p class="script-alert mt-3 px-3 py-2 text-sm font-bold" role="note">
+            &#9888; THE SCRIPT IS IN. We're ${fmt(Math.abs(p.vegas - p.margin), 1)}
+            points off what the bookies wrote. At 3+ points the script has beaten us
+            more often than not. Somebody knows something. Probably not us.
+          </p>`;
+  }
+
   function vegasBlock(p) {
     if (p.vegas === null) return "";
     const call = Math.abs(p.vegas) < 0.5 ? "Pick'em"
@@ -114,6 +134,7 @@
             with how Vegas has priced both teams in every game so far.
             Historically ~30% closer to the final line than we are alone.
           </p>
+          ${scriptAlert(p)}
         </div>`;
   }
 

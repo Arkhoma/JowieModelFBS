@@ -13,6 +13,7 @@ from cfbrank.ridge import fit
 from cfbrank.static_export import predictor_payload
 from cfbrank.vegas_script import (
     MARKET_WEIGHT, OURS_WEIGHT, VegasScript, fit_market_ratings, priced_games,
+    script_alert,
 )
 
 TEAMS = ["A", "B", "C", "D", "E", "F", "G"]
@@ -85,6 +86,17 @@ def test_predictor_and_static_payload_agree(schedule, lines):
     market = p["calibrated"]["C"] - p["calibrated"]["A"] + p["home_field"]
     rebuilt = p["ours_weight"] * live.predicted_margin + p["market_weight"] * market
     assert rebuilt == pytest.approx(live.vegas_margin)
+
+
+@pytest.mark.parametrize("ours,script,expected", [
+    (5.0, 7.9, None),        # 2.9-point split: no alert
+    (5.0, 8.0, "in"),        # 3.0: the script is in
+    (-3.0, 4.0, "flip"),     # different winner too
+    (2.0, -1.5, "flip"),
+    (5.0, None, None),       # no script yet
+])
+def test_script_alert_levels(ours, script, expected):
+    assert script_alert(ours, script) == expected
 
 
 def test_no_script_leaves_prediction_alone(schedule):

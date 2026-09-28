@@ -81,6 +81,29 @@ def main() -> None:
     for name, m in (("wk<=8", df.week <= 8), ("wk>8", df.week > 8)):
         print(f"    {name:6s} {gap_old[m].mean():+.3f} -> {gap_new[m].mean():+.3f}")
 
+    # How big a split between the script and our number is worth a warning?
+    split = np.abs(pred - df.ours.to_numpy())
+    script_closer = err(pred) < err(df.ours)
+    print("\n  |script - ours|   games  script closer  MAE saved  our SU  script SU")
+    for lo, hi in ((0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 99)):
+        m = (split >= lo) & (split < hi)
+        if not m.any():
+            continue
+        su = lambda p: ((p[m] > 0) == (df.actual[m] > 0)).mean()
+        print(f"    {lo}-{hi if hi < 99 else '+':<3}         {m.sum():>5}  "
+              f"{script_closer[m].mean():>12.0%}  "
+              f"{(err(df.ours) - err(pred))[m].mean():>+9.2f}  "
+              f"{su(df.ours):>6.0%}  {su(pd.Series(pred, index=df.index)):>8.0%}")
+
+    flip = np.sign(pred) != np.sign(df.ours.to_numpy())
+    script_won = ((pred > 0) == (df.actual > 0))[flip]
+    print(f"\n  script picks a DIFFERENT WINNER: {flip.sum()} games, "
+          f"script's winner won {script_won.mean():.0%}")
+    for lo in (0, 1, 2, 3):
+        m = flip & (split >= lo)
+        print(f"    and split >= {lo}: {m.sum():>4} games, script right "
+              f"{((pred > 0) == (df.actual > 0))[m].mean():.0%}")
+
 
 if __name__ == "__main__":
     main()

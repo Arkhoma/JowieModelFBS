@@ -39,6 +39,21 @@ MARKET_WEIGHT = 0.365
 # (the backtest started a season's Vegas Script at 100 too).
 MIN_PRICED_GAMES = 100
 
+# "The script is in." When the Vegas Script and our number split by this
+# many points, the script has historically been the better call
+# (tools/probe_market_rating.py, 5,284 games, script fit out of season):
+#   split 0-3 pts : script closer 51-52%, saves 0.02-0.13 pts   -> no alert
+#   split 3+ pts  : script closer 54-56%, saves 0.31-0.59 pts   -> alert
+#   3+ AND it picks a different winner: script's winner won 61% (75 games)
+SCRIPT_IN_POINTS = 3.0
+
+
+def script_alert(ours: float, script: float | None) -> str | None:
+    """None, "in" (3+ point split) or "flip" (3+ and a different winner)."""
+    if script is None or abs(script - ours) < SCRIPT_IN_POINTS:
+        return None
+    return "flip" if (script > 0) != (ours > 0) else "in"
+
 
 def priced_games(games: list[Game], lines: dict[str, float]) -> list[Game]:
     """Games with a closing line, the line standing in for the score."""
