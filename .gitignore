@@ -33,3 +33,5 @@ _site*/
 data/improvement_components.csv
 server_*.log
 data/offdef_components.csv
+data/variants/ 
+data/line_crosscheck.csv 
