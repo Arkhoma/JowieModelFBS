@@ -10,7 +10,6 @@ the line is information the market has (injuries, depth charts, sharp
 money) that is recoverable from its past prices.
 """
 import sys
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -20,26 +19,28 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from benchmark_vs_market import load_home_lines  # noqa: E402
+from cfbrank.lines import home_lines as load_home_lines  # noqa: E402
 from cfbrank.games import load_season  # noqa: E402
 from cfbrank.prior_model import build_roster_prior_or_empty  # noqa: E402
 from cfbrank.ridge import fit  # noqa: E402
+from cfbrank.vegas_script import (  # noqa: E402
+    MARKET_PARAMS, MIN_PRICED_GAMES, priced_games,
+)
 
 BENCH = ROOT / "data" / "benchmark_vs_market.csv"
-LAMBDA = float(sys.argv[1]) if len(sys.argv) > 1 else 2.0
+LAMBDA = float(sys.argv[1]) if len(sys.argv) > 1 else MARKET_PARAMS["lambda_"]
 USE_PRIOR = len(sys.argv) > 2 and sys.argv[2] == "prior"
-PARAMS = {"lambda_": LAMBDA, "margin_scale": 1e4, "halflife": 1e6}
+PARAMS = {**MARKET_PARAMS, "lambda_": LAMBDA}
 
 
 def market_predictions(season: int, lines: dict[str, float]) -> dict[str, float]:
     games = load_season(season)
-    priced = [replace(g, home_points=lines[str(g.game_id)], away_points=0)
-              for g in games if str(g.game_id) in lines]
+    priced = priced_games(games, lines)
     out = {}
     prior = (build_roster_prior_or_empty(season) or None) if USE_PRIOR else None
     for week in sorted({g.week for g in games}):
         history = [g for g in priced if g.week < week]
-        if len(history) < 100:
+        if len(history) < MIN_PRICED_GAMES:
             continue
         model = fit(history, prior=prior, **PARAMS)
         for g in games:

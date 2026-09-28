@@ -65,6 +65,22 @@
     <strong>&plusmn;{{ "%.1f"|format(prediction.error_std) }} points</strong>
     typical miss. Anything inside two touchdowns is close to a coin flip.
   </p>
+
+  {% if prediction.vegas_margin is not none %}
+  <div class="vegas-script border-t-2 border-ink px-5 py-4">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h3 class="section-title text-sm">&#127922; The Vegas Script</h3>
+      <div class="font-bold tabular-nums">
+        {% if prediction.vegas_margin|abs < 0.5 %}Pick'em{% else %}{{ prediction.vegas_favourite }} by {{ "%.1f"|format(prediction.vegas_margin|abs) }}{% endif %}
+      </div>
+    </div>
+    <p class="text-xs mt-1">
+      What the bookies have already written for this one. Our number, blended
+      with how Vegas has priced both teams in every game so far.
+      Historically ~30% closer to the final line than we are alone.
+    </p>
+  </div>
+  {% endif %}
 </div>
 
 {% endif %}

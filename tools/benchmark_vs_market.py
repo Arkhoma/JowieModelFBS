@@ -9,10 +9,9 @@ The closing line is the right yardstick: it is the sharpest public
 predictor, and historically it beats SP+ and FPI in most seasons. If we
 are within a few tenths of the market, we are in SP+/FPI territory.
 
-Line source: sportsdataverse cfbfastR-data betting/csv/cfb_line_odds.csv.gz
-(ESPN game ids, same as our schedules). A spread line is quoted per team;
-negative means favoured. We use the home side and prefer the 'consensus'
-book, falling back to the median across books.
+Line source: cfbrank.lines (sportsdataverse mirror, CFBD fills gaps).
+ESPN game ids, same as our schedules. We use the home side and prefer the
+'consensus' book, falling back to the median across books.
 
 Also reports:
   ATS    how often our model picks the right side of the line -- 52.4%
@@ -42,6 +41,7 @@ from cfbrank.epa_ridge import (  # noqa: E402
     build_epa_games, fit_epa_ratings_primed, get_ep_model,
 )
 from cfbrank.games import POSTSEASON, load_season  # noqa: E402
+from cfbrank.lines import home_lines, total_lines  # noqa: E402
 from cfbrank.offdef_prior import fit_points_model  # noqa: E402
 from cfbrank.predict import Predictor  # noqa: E402
 from cfbrank.prior import home_field_prior  # noqa: E402
@@ -51,38 +51,16 @@ from cfbrank.scorecard import (  # noqa: E402
     EARLY_WEEK_CUTOFF, TIERS, grade, grade_totals, postseason_tier,
 )
 
-LINES_PATH = ROOT / "data" / "raw" / "betting" / "cfb_line_odds.csv.gz"
 # The web app's accuracy view reads this file -- rerun this tool after any
 # model change so the site reports the model it actually serves.
 OUTPUT_PATH = ROOT / "data" / "benchmark_vs_market.csv"
 SEASONS = (2021, 2022, 2023, 2024, 2025)
 BREAK_EVEN_ATS = 0.524
 
-
-def _consensus_or_median(lines: pd.DataFrame) -> pd.Series:
-    """game_id -> the 'consensus' book's line, else the median of books."""
-    lines = lines.assign(game_id=lines.game_id.astype("int64").astype(str))
-    consensus = lines[lines.book == "consensus"].groupby("game_id").lines.first()
-    return consensus.combine_first(lines.groupby("game_id").lines.median())
-
-
-def _market(kind: str) -> pd.DataFrame:
-    lines = pd.read_csv(LINES_PATH)
-    return lines[(lines.market_type == kind) & lines.lines.notna()
-                 & lines.game_id.notna()]
-
-
-def load_home_lines() -> dict[str, float]:
-    """game_id -> market's predicted HOME margin (i.e. minus the spread)."""
-    lines = _market("spread")
-    lines = lines[lines.abbr == lines.game_desc.str.split("@").str[1]]
-    return (-_consensus_or_median(lines)).to_dict()
-
-
-def load_total_lines() -> dict[str, float]:
-    """game_id -> market's over/under (combined points)."""
-    lines = _market("total")
-    return _consensus_or_median(lines[lines.abbr == "over"]).to_dict()
+# Line loading lives in cfbrank.lines now (the app needs it for the Vegas
+# Script). These names are kept so the experiment tools keep working.
+load_home_lines = home_lines
+load_total_lines = total_lines
 
 
 def walk_season(season: int, market: dict[str, float],

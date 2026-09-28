@@ -20,6 +20,7 @@ float per game in the season) and lets the browser do the same
 from __future__ import annotations
 
 from .predict import Predictor
+from .vegas_script import MARKET_WEIGHT, OURS_WEIGHT
 
 
 def predictor_payload(predictor: Predictor, teams: list[str]) -> dict:
@@ -52,4 +53,15 @@ def predictor_payload(predictor: Predictor, teams: list[str]) -> dict:
             for t in teams if t in total_model.ratings
         }
         payload["total_mean"] = total_model.mean
+    vegas = predictor.vegas
+    if vegas is not None:
+        # Same identity as `calibrated`: margin = m[home] - m[away] + hfa.
+        market = vegas.market
+        payload["vegas"] = {
+            "ours_weight": OURS_WEIGHT,
+            "market_weight": MARKET_WEIGHT,
+            "home_field": market.home_field,
+            "calibrated": {t: market.calibrated_rating(t)
+                           for t in teams if t in market.ratings},
+        }
     return payload

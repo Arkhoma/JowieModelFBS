@@ -55,15 +55,17 @@ jobs:
       - name: Fetch latest data
         run: python tools/fetch_mirror.py --current
 
-      # Talent + coaching-change prior inputs. Needs the repo secret
-      # CFBD_API_KEY; without it the prior quietly drops those two terms.
-      # Already-cached files are skipped, so this costs ~70 of the free
-      # tier's 1,000 monthly calls once, then almost nothing.
-      - name: Fetch CFBD prior inputs
+      # Talent + coaching-change prior inputs, plus this season's results
+      # and betting lines (the mirror publishes lines late; the Predict
+      # page's Vegas Script needs them). Needs the repo secret
+      # CFBD_API_KEY; without it the prior drops those two terms and the
+      # Vegas Script only appears once the mirror has lines.
+      # Cached files are skipped: ~2-4 calls a week after the first run.
+      - name: Fetch CFBD inputs
         if: env.CFBD_API_KEY != ''
         run: |
           python tools/fetch_cfbd.py --only priors --years $(seq 2014 $(date +%Y))
-          python tools/fetch_cfbd.py --only games --years 2021 2022
+          python tools/fetch_cfbd.py --only games --years $(seq 2021 $(date +%Y))
 
       - name: Tests
         run: python -m pytest -q

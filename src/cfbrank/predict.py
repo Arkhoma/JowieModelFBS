@@ -42,6 +42,15 @@ class Prediction:
     home_win_probability: float
     error_std: float
     factors: list[tuple[str, float]] = field(default_factory=list)
+    # The Vegas Script: our margin blended with the market-implied one
+    # (cfbrank.vegas_script). None when there aren't enough lines yet.
+    vegas_margin: float | None = None
+
+    @property
+    def vegas_favourite(self) -> str | None:
+        if self.vegas_margin is None:
+            return None
+        return self.home_team if self.vegas_margin > 0 else self.away_team
 
     @property
     def total(self) -> float:
@@ -115,11 +124,12 @@ class Predictor:
     errors: np.ndarray
     average_total: float
     total_model: object | None = None
+    vegas: object | None = None   # cfbrank.vegas_script.VegasScript
 
     @classmethod
     def from_model(
         cls, model: RatingResult, games: list[Game],
-        total_model: object | None = None,
+        total_model: object | None = None, vegas: object | None = None,
     ) -> "Predictor":
         """Calibrate against the games the model was fit on.
 
@@ -150,6 +160,7 @@ class Predictor:
             errors=residuals,
             average_total=_fit_scoring_environment(games),
             total_model=total_model,
+            vegas=vegas,
         )
 
     def predict_total(
@@ -198,6 +209,11 @@ class Predictor:
             factors.append(("Home field", home_field))
         factors.append(("Predicted margin", margin))
 
+        vegas_margin = None
+        if self.vegas is not None and self.vegas.knows(home_team, away_team):
+            vegas_margin = self.vegas.blend(
+                margin, home_team, away_team, neutral_site)
+
         return Prediction(
             home_team=home_team,
             away_team=away_team,
@@ -209,6 +225,7 @@ class Predictor:
                 margin, self.errors),
             error_std=float(np.std(self.errors)) if self.errors.size else 0.0,
             factors=factors,
+            vegas_margin=vegas_margin,
         )
 
     def known_teams(self) -> list[str]:

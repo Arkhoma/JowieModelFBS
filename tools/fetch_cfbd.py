@@ -168,6 +168,9 @@ FIRST_COACH_YEAR = 2008
 # are coached), so those files are refetched when older than this. Costs
 # ~6 calls a week; past seasons are never refetched.
 CURRENT_REFRESH_DAYS = 7
+# Results and lines move every week; the Sunday build must never skip them
+# because last Sunday's file is 6.9 days old.
+GAMES_REFRESH_DAYS = 1
 
 
 def fetch_priors(year: int, current: bool = False) -> None:
@@ -190,12 +193,15 @@ def fetch_priors(year: int, current: bool = False) -> None:
 
 
 def fetch_games(year: int, current: bool = False) -> None:
-    """Just the results (1 call). The mirror lacks 2021-22 bowls, and its
-    attendance column is blank from 2025 on, so the current season is
-    refetched weekly."""
+    """Results + closing lines (2 calls). The mirror lacks 2021-22 bowls,
+    its attendance is blank from 2025 on, and it publishes the current
+    season's lines late -- the Vegas Script needs them weekly. The
+    current season is refetched if older than a day."""
+    age = GAMES_REFRESH_DAYS if current else None
     grab("games", "/games", {"year": year, "seasonType": "both"},
-         str(year), "games",
-         max_age_days=CURRENT_REFRESH_DAYS if current else None)
+         str(year), "games", max_age_days=age)
+    grab("betting lines", "/lines", {"year": year, "seasonType": "both"},
+         str(year), "lines", max_age_days=age)
 
 
 def fetch_context(year: int, current: bool = False) -> None:
@@ -211,9 +217,6 @@ def fetch_context(year: int, current: bool = False) -> None:
 
     # AP / Coaches polls -- this is what we benchmark the model against.
     grab("polls", "/rankings", {"year": year, "seasonType": "both"}, y, "polls")
-    # Betting lines: the sharpest public predictor, our accuracy yardstick.
-    grab("betting lines", "/lines",
-         {"year": year, "seasonType": "both"}, y, "lines")
     # Existing published ratings, for sanity-checking our output.
     grab("SP+ ratings", "/ratings/sp", {"year": year}, y, "ratings_sp")
     grab("SRS ratings", "/ratings/srs", {"year": year}, y, "ratings_srs")

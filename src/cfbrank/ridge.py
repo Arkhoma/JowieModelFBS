@@ -203,6 +203,7 @@ def fit(
     current_week: float | None = None,
     prior: dict[str, float] | None = None,
     home_field_prior: tuple[float, float] | None = None,
+    shrink_calibration: bool = True,
 ) -> RatingResult:
     """Solve for team ratings by weighted ridge regression.
 
@@ -226,6 +227,10 @@ def fit(
     and the early fit overshoots every year (2.7-3.6 vs 1.7-2.5 full
     season; 5.2 in week 3 of 2026). Shrinking toward the historical
     value fixes that, and fades out as the season fills in.
+
+    `shrink_calibration=False` keeps the raw fitted slope. The 1.85 prior
+    was measured on noisy final SCORES; betting lines (the Vegas Script)
+    have no such noise, and the prior inflates their ratings.
     """
     if not games:
         raise ValueError("No games supplied to the rating engine.")
@@ -304,7 +309,8 @@ def fit(
     denominator = float(edges @ edges)
     raw_calibration = (float(edges @ adjusted) / denominator
                        if denominator else 1.0)
-    calibration = _shrink_calibration(raw_calibration, len(games))
+    calibration = (_shrink_calibration(raw_calibration, len(games))
+                   if shrink_calibration else raw_calibration)
 
     return RatingResult(
         ratings=dict(zip(teams, team_ratings)),

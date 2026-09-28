@@ -93,6 +93,7 @@
       ("Off / Def", "Each offense vs each defense. Drives predicted totals; doesn't change the rank."),
       ("Resume", "Wins minus what a top-25 team would expect on the same schedule. Margin ignored."),
       ("Predictions", "Spread from ratings, total from Off/Def, win % from the model's own past misses."),
+      ("&#127922; The Vegas Script", "A second spread on the Predict page, not our pick. Our number, blended with team ratings fit on past betting lines. Uses lines from games already played, never the game being predicted. Gap to Vegas drops from +0.34 to +0.24. The rankings never use it."),
     ] %}
     <div class="retro-card p-3">
       <dt class="section-title text-sm">{{ term }}</dt>
@@ -128,6 +129,9 @@
           ("Garbage-time filter", "+0.006", "Worse", false),
           ("Recruiting classes", "same as talent", "Redundant", false),
           ("Portal star ratings", "&asymp;0", "Noise", false),
+          ("Crowd, travel, big-game home field", "+0.013 &plusmn;0.010", "Too small", false),
+          ("FCS preseason model", "&minus;0.002 &plusmn;0.019", "Noise", false),
+          ("Past betting lines (Vegas Script)", "&minus;0.096", "Side number", true),
         ] %}
         <tr class="border-t border-ink/20">
           <td class="px-4 py-2">{{ change }}</td>

@@ -24,6 +24,7 @@ from cfbrank.epa_ridge import (  # noqa: E402
     build_epa_games, fit_epa_ratings_primed, get_ep_model,
 )
 from cfbrank.games import POSTSEASON, available_seasons, load_season  # noqa: E402
+from cfbrank.lines import home_lines  # noqa: E402
 from cfbrank.offdef_prior import fit_points_model  # noqa: E402
 from cfbrank.predict import Predictor  # noqa: E402
 from cfbrank.prior import home_field_prior  # noqa: E402
@@ -31,6 +32,7 @@ from cfbrank.prior_model import build_roster_prior_or_empty  # noqa: E402
 from cfbrank.resume import build_resumes, rank_resumes  # noqa: E402
 from cfbrank.ridge import fit  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
+from cfbrank.vegas_script import VegasScript, fit_market_ratings  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = Jinja2Templates(directory=str(PROJECT_ROOT / "app" / "templates"))
@@ -112,7 +114,8 @@ def get_season(season: int) -> SeasonModel:
     # -0.002 pts/game over the control), so it stays out of the ranking.
     offdef_model = fit_points_model(season, games, home_field_prior(season))
 
-    predictor = Predictor.from_model(model, games, total_model=offdef_model)
+    predictor = Predictor.from_model(model, games, total_model=offdef_model,
+                                     vegas=_vegas_script(games))
 
     # Two ratings, never averaged. Predictive answers "who is best";
     # resume answers "who has earned the most." They genuinely disagree,
@@ -158,6 +161,12 @@ def get_season(season: int) -> SeasonModel:
         has_postseason=any(g.season_type == POSTSEASON for g in games),
         uses_epa=epa_model is not None,
     )
+
+
+def _vegas_script(games) -> VegasScript | None:
+    """The Predict page's second number. Never touches the rankings."""
+    market = fit_market_ratings(games, home_lines())
+    return VegasScript(market) if market is not None else None
 
 
 def _rank_fbs(model, score) -> dict[str, int]:
