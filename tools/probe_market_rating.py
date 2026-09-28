@@ -52,14 +52,29 @@ def market_predictions(season: int, lines: dict[str, float]) -> dict[str, float]
     return out
 
 
-def main() -> None:
+def stacked_frame() -> pd.DataFrame:
+    """Benchmark games + mkt_rating + `script` (the LOSO-stacked blend,
+    each season's weights fit on the other seasons only)."""
     lines = load_home_lines()
     df = pd.read_csv(BENCH, dtype={"game_id": str})
     mk = {}
     for season in sorted(df.season.unique()):
         mk.update(market_predictions(int(season), lines))
     df["mkt_rating"] = df.game_id.map(mk)
-    df = df.dropna(subset=["mkt_rating"])
+    df = df.dropna(subset=["mkt_rating"]).reset_index(drop=True)
+    pred = np.zeros(len(df))
+    X = df[["ours", "mkt_rating"]].to_numpy()
+    for season in df.season.unique():
+        tr, te = (df.season != season).to_numpy(), (df.season == season).to_numpy()
+        w, *_ = np.linalg.lstsq(X[tr], df.actual[tr], rcond=None)
+        pred[te] = X[te] @ w
+    df["script"] = pred
+    return df
+
+
+def main() -> None:
+    df = stacked_frame()
+    pred = df.script.to_numpy()
     print(f"lambda={LAMBDA} prior={USE_PRIOR}: {len(df)} games with a market rating")
 
     err = lambda p: np.abs(df.actual - p)
@@ -67,12 +82,6 @@ def main() -> None:
     print(f"  market-rating     MAE {err(df.mkt_rating).mean():.3f}")
     print(f"  closing line      MAE {err(df.line).mean():.3f}")
 
-    pred = np.zeros(len(df))
-    for season in df.season.unique():
-        tr, te = (df.season != season).to_numpy(), (df.season == season).to_numpy()
-        X = df[["ours", "mkt_rating"]].to_numpy()
-        w, *_ = np.linalg.lstsq(X[tr], df.actual[tr], rcond=None)
-        pred[te] = X[te] @ w
     w, *_ = np.linalg.lstsq(df[["ours", "mkt_rating"]], df.actual, rcond=None)
     gap_old = (err(df.ours) - err(df.line))
     gap_new = (err(pred) - err(df.line))
