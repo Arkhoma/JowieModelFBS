@@ -61,6 +61,7 @@ def predictor_payload(predictor: Predictor, teams: list[str]) -> dict:
             "ours_weight": OURS_WEIGHT,
             "market_weight": MARKET_WEIGHT,
             "alert_points": SCRIPT_IN_POINTS,
+            "alerts_on": vegas.alerts_on,
             "home_field": market.home_field,
             "calibrated": {t: market.calibrated_rating(t)
                            for t in teams if t in market.ratings},

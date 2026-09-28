@@ -101,7 +101,8 @@
 
   // Mirrors cfbrank.vegas_script.script_alert.
   function scriptAlert(p) {
-    if (p.vegas === null || Math.abs(p.vegas - p.margin) < model.vegas.alert_points) return "";
+    if (p.vegas === null || !model.vegas.alerts_on
+        || Math.abs(p.vegas - p.margin) < model.vegas.alert_points) return "";
     const fav = esc(p.vegas > 0 ? p.home : p.away);
     if ((p.vegas > 0) !== (p.margin > 0)) {
       return `

@@ -13,7 +13,7 @@ from cfbrank.ridge import fit
 from cfbrank.static_export import predictor_payload
 from cfbrank.vegas_script import (
     MARKET_WEIGHT, OURS_WEIGHT, VegasScript, fit_market_ratings, priced_games,
-    script_alert,
+    script_alert, alerts_active,
 )
 
 TEAMS = ["A", "B", "C", "D", "E", "F", "G"]
@@ -97,6 +97,30 @@ def test_predictor_and_static_payload_agree(schedule, lines):
 ])
 def test_script_alert_levels(ours, script, expected):
     assert script_alert(ours, script) == expected
+
+
+def test_alert_switched_off_suppresses_even_big_splits():
+    assert script_alert(-3.0, 10.0, active=False) is None
+
+
+@pytest.mark.parametrize("latest_week,expected", [
+    (3, True),    # predicting week 4
+    (11, True),   # predicting week 12: last week with alerts
+    (12, False),  # predicting week 13 / rivalry week
+    (16, False),  # bowls (renumbered after the regular season)
+])
+def test_alerts_active_by_week(latest_week, expected):
+    assert alerts_active([_game(0, "A", "B", 3, week=latest_week)]) is expected
+
+
+def test_late_season_script_still_shows_without_alert(schedule, lines):
+    """Week 13+: the number stays, only the warning goes."""
+    vegas = VegasScript(fit_market_ratings(schedule, lines), alerts_on=False)
+    model = fit(schedule, lambda_=5.0, margin_scale=28.0, halflife=1e6)
+    predictor = Predictor.from_model(model, schedule, vegas=vegas)
+    p = predictor.predict("A", "G")
+    assert p.vegas_margin is not None and p.script_alert is None
+    assert predictor_payload(predictor, TEAMS)["vegas"]["alerts_on"] is False
 
 
 def test_no_script_leaves_prediction_alone(schedule):

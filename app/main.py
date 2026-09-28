@@ -32,7 +32,9 @@ from cfbrank.prior_model import build_roster_prior_or_empty  # noqa: E402
 from cfbrank.resume import build_resumes, rank_resumes  # noqa: E402
 from cfbrank.ridge import fit  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
-from cfbrank.vegas_script import VegasScript, fit_market_ratings  # noqa: E402
+from cfbrank.vegas_script import (  # noqa: E402
+    VegasScript, alerts_active, fit_market_ratings,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = Jinja2Templates(directory=str(PROJECT_ROOT / "app" / "templates"))
@@ -166,7 +168,8 @@ def get_season(season: int) -> SeasonModel:
 def _vegas_script(games) -> VegasScript | None:
     """The Predict page's second number. Never touches the rankings."""
     market = fit_market_ratings(games, home_lines())
-    return VegasScript(market) if market is not None else None
+    return (VegasScript(market, alerts_on=alerts_active(games))
+            if market is not None else None)
 
 
 def _rank_fbs(model, score) -> dict[str, int]:

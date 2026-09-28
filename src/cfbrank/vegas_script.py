@@ -46,11 +46,24 @@ MIN_PRICED_GAMES = 100
 #   split 3+ pts  : script closer 54-56%, saves 0.31-0.59 pts   -> alert
 #   3+ AND it picks a different winner: script's winner won 61% (75 games)
 SCRIPT_IN_POINTS = 3.0
+# ...but not late. At 3+, points saved by the script fade with the season
+# (tools/check_script_threshold.py): wk 4-5 +0.69, wk 6-8 +0.20,
+# wk 9-12 +0.35, wk 13+/bowls +0.04 with the closing line siding with the
+# script only 51% of the time -- a coin flip. Postseason weeks are
+# renumbered after the regular season (cfbrank.games), so they're 13+ too.
+LAST_ALERT_WEEK = 12
 
 
-def script_alert(ours: float, script: float | None) -> str | None:
+def alerts_active(games: list[Game]) -> bool:
+    """Is the week being predicted (the one after the latest played)
+    still early enough for the alert to mean anything?"""
+    return bool(games) and max(g.week for g in games) + 1 <= LAST_ALERT_WEEK
+
+
+def script_alert(ours: float, script: float | None,
+                 active: bool = True) -> str | None:
     """None, "in" (3+ point split) or "flip" (3+ and a different winner)."""
-    if script is None or abs(script - ours) < SCRIPT_IN_POINTS:
+    if not active or script is None or abs(script - ours) < SCRIPT_IN_POINTS:
         return None
     return "flip" if (script > 0) != (ours > 0) else "in"
 
@@ -75,7 +88,9 @@ class VegasScript:
     """Blends our margin with the market-implied one."""
 
     market: RatingResult
-
+    # False from week 13 on: the alert is a coin flip that late. The
+    # script number itself still shows.
+    alerts_on: bool = True
     def knows(self, home: str, away: str) -> bool:
         return home in self.market.ratings and away in self.market.ratings
 

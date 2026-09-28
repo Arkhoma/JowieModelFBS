@@ -46,6 +46,7 @@ class Prediction:
     # The Vegas Script: our margin blended with the market-implied one
     # (cfbrank.vegas_script). None when there aren't enough lines yet.
     vegas_margin: float | None = None
+    script_alerts_on: bool = True
 
     @property
     def vegas_favourite(self) -> str | None:
@@ -56,7 +57,8 @@ class Prediction:
     @property
     def script_alert(self) -> str | None:
         """"in" / "flip" when the Vegas Script overrules us; see vegas_script."""
-        return script_alert(self.predicted_margin, self.vegas_margin)
+        return script_alert(self.predicted_margin, self.vegas_margin,
+                            self.script_alerts_on)
 
     @property
     def total(self) -> float:
@@ -232,6 +234,7 @@ class Predictor:
             error_std=float(np.std(self.errors)) if self.errors.size else 0.0,
             factors=factors,
             vegas_margin=vegas_margin,
+            script_alerts_on=self.vegas is not None and self.vegas.alerts_on,
         )
 
     def known_teams(self) -> list[str]:
