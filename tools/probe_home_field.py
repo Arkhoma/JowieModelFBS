@@ -1,23 +1,25 @@
-"""Does home field vary by venue, crowd, or matchup size?
+"""Does home field vary by crowd, stadium, altitude, travel or matchup?
 
 Uses the walk-forward predictions in data/benchmark_vs_market.csv, so
-every residual is out of sample. Three questions:
+every residual (actual - predicted home margin) is out of sample. Each
+candidate term is scored leave-one-season-out: fit on four seasons,
+apply to the fifth, and compare MAE against a flat home field fit on
+the same four. A term ships only if it wins across seasons.
 
-1. Team-specific HFA: is a team's (home resid - away resid) in 2021-23
-   correlated with the same number in 2024-25? Noise won't repeat.
-2. Crowd: do home residuals rise with the home team's PRIOR-season
-   average attendance (a number known before kickoff)?
-3. Big game: do home residuals rise when both teams are strong?
-4. Holdout: fit crowd/big-game terms on one era, score the other.
+All features are known BEFORE kickoff (crowd = the home team's previous
+season average, never the game's own gate).
 
-RESULT (2026-09-28): all three look real in-sample and none survive the
-holdout. Crowd and big-game terms make out-of-sample MAE WORSE. The
-team-specific HFA split-half r is 0.03 (noise). Flat HFA stays.
+Data: python tools/fetch_cfbd.py --only games --years 2019 ... 2026
+      (needs HTTPS_PROXY=http://proxy.wal-mart.com:8080 on the work laptop)
 
-Also reports the market's residual (actual - line) for each, which tells
-us whether Vegas already prices it in.
+RESULT 2026-09-28 (v2, full CFBD attendance/venues, 2,902 FBS-vs-FBS
+home games 2021-25): in-sample, crowd fill (+0.44 per 10 pts of
+capacity), travel (+0.54 per doubling of miles) and top-20 matchups
+(+2.5) all lean the right way. Out of sample, the best combo (fill +
+travel) gains +0.024 MAE, CI +/-0.044, winning 3 of 5 seasons. Every
+term is inside its noise band; team-specific HFA r = 0.07. Flat HFA
+stays. Rerun after 2026 finishes -- one more season tightens the CI.
 """
-import csv
 import sys
 from pathlib import Path
 
@@ -25,150 +27,151 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-SCHED = ROOT / "data" / "raw" / "schedules"
+sys.path.insert(0, str(ROOT / "src"))
+
+from cfbrank.games import load_season  # noqa: E402
+from cfbrank.venue import season_context  # noqa: E402
+
+SEASONS = range(2019, 2027)
+SHRINKS = (1.0, 0.5, 0.25)
 
 
-def schedules() -> pd.DataFrame:
-    frames = []
-    for season in range(2019, 2027):
-        with open(SCHED / f"schedules_{season}.csv", encoding="utf-8") as h:
-            frames.append(pd.DataFrame(list(csv.DictReader(h))))
-    df = pd.concat(frames)
-    df["season"] = df["season"].astype(int)
-    df["attendance"] = pd.to_numeric(df["attendance"], errors="coerce")
-    return df
+def game_table() -> pd.DataFrame:
+    rows = []
+    for season in SEASONS:
+        ctx = season_context(season)
+        for g in load_season(season):
+            c = ctx.get(str(g.game_id))
+            rows.append({
+                "game_id": str(g.game_id), "season": season,
+                "home_team": g.home_team, "away_team": g.away_team,
+                "neutral": g.neutral_site, "conf_game": g.conference_game,
+                "fbs_both": g.is_fbs_only,
+                "attendance": c.attendance if c else None,
+                "capacity": c.capacity if c else None,
+                "elev": c.elevation_m if c else None,
+                "travel": c.travel_miles if c else None,
+                "elo_h": c.home_elo if c else None,
+                "elo_a": c.away_elo if c else None,
+            })
+    return pd.DataFrame(rows)
 
 
-def prior_attendance(sched: pd.DataFrame) -> dict[tuple[int, str], float]:
-    """(season, team) -> mean home attendance of the most recent prior
-    season with data (2020 skipped: COVID crowds)."""
-    home = sched[(sched["neutral_site"] != "TRUE") & sched["attendance"].gt(0)
-                 & (sched["season"] != 2020)]
-    avg = home.groupby(["season", "home_team"])["attendance"].mean()
+def prior_crowd(games: pd.DataFrame) -> pd.Series:
+    """(season, team) -> previous season's mean home attendance and fill.
+    2020 (COVID) is skipped; we fall back to 2019."""
+    home = games[~games.neutral & games.attendance.notna()
+                 & (games.season != 2020)].copy()
+    home["fill"] = (home.attendance / home.capacity).clip(upper=1.1)
+    avg = home.groupby(["season", "home_team"])[["attendance", "fill"]].mean()
     out = {}
-    for season in range(2021, 2027):
-        for team in sched["home_team"].unique():
-            for back in range(1, 6):
-                key = (season - back, team)
-                if key in avg.index:
-                    out[(season, team)] = float(avg[key])
-                    break
-    return out
+    for (season, team) in games[["season", "home_team"]].drop_duplicates().itertuples(index=False):
+        for back in (1, 2):
+            key = (season - back, team)
+            if key in avg.index:
+                out[(season, team)] = avg.loc[key]
+                break
+    return pd.DataFrame(out).T
+
+
+def features(df: pd.DataFrame) -> pd.DataFrame:
+    """Centered features, each scaled to a readable unit (see comments)."""
+    f = pd.DataFrame(index=df.index)
+    f["crowd"] = np.log2(df.prior_att / 50_000)          # per doubling of crowd
+    f["fill"] = (df.prior_fill - 0.8) * 10               # per 10 pts of capacity
+    f["stadium"] = np.log2(df.capacity / 50_000)        # per doubling of stadium
+    # 1,200 m ~ 4,000 ft: Air Force, Wyoming, Colorado, Colorado St, Utah,
+    # BYU, New Mexico, UNLV-era Sam Boyd... CFBD elevations are metres.
+    f["altitude"] = (df.elev.fillna(0) > 1200).astype(float)
+    f["travel"] = np.log2(df.travel.clip(lower=25) / 500)  # per doubling of miles
+    floor = df[["elo_h", "elo_a"]].min(axis=1)
+    f["big_game"] = (floor - 1500) / 200                 # weaker team's Elo
+    f["top_matchup"] = (floor > 1700).astype(float)      # both roughly top-20
+    f["conf_game"] = df.conf_game.astype(float)          # rivals travel better
+    # Prefix so feature names can never collide with raw columns.
+    return f.add_prefix("x_")
+
+
+def loso(df: pd.DataFrame, feats: list[str]) -> tuple[list[float], np.ndarray, float]:
+    """Leave-one-season-out MAE gain vs a flat shift, at each shrink level.
+    Returns (pooled gain per shrink level, per-season gains at 100%,
+    95% CI half-width of the pooled 100% gain from per-game differences)."""
+    total = np.zeros(len(SHRINKS))
+    per_season, per_game = [], []
+    for season in sorted(df.season.unique()):
+        train, test = df[df.season != season], df[df.season == season]
+        X = np.column_stack([np.ones(len(train))] + [train[f] for f in feats])
+        coef, *_ = np.linalg.lstsq(X, train.resid, rcond=None)
+        flat = np.abs(test.resid - train.resid.mean())
+        Xt = np.column_stack([test[f] for f in feats])
+        adjusted = [np.abs(test.resid - coef[0] - Xt @ (coef[1:] * s))
+                    for s in SHRINKS]
+        gains = [(flat - a).sum() for a in adjusted]
+        per_game.append(flat - adjusted[0])
+        total += gains
+        per_season.append(gains[0] / len(test))
+    diffs = np.concatenate(per_game)
+    ci = 1.96 * diffs.std() / np.sqrt(len(diffs))
+    return list(total / len(df)), np.array(per_season), ci
 
 
 def main() -> None:
     bench = pd.read_csv(ROOT / "data" / "benchmark_vs_market.csv",
                         dtype={"game_id": str})
-    sched = schedules()
-    cols = ["game_id", "home_team", "away_team", "neutral_site",
-            "home_division", "away_division", "attendance",
-            "home_pregame_elo", "away_pregame_elo"]
-    df = bench.merge(sched[cols], on="game_id", how="left")
-    df = df[df["neutral_site"] != "TRUE"].copy()
-    df["resid"] = df["actual"] - df["ours"]
-    df["mkt_resid"] = df["actual"] - df["line"]
-    print(f"home-site games: {len(df)}  mean resid ours {df.resid.mean():+.2f}"
-          f"  market {df.mkt_resid.mean():+.2f}")
+    games = game_table()
+    crowd = prior_crowd(games)
+    games["prior_att"] = [crowd.attendance.get((s, t)) if len(crowd) else None
+                          for s, t in zip(games.season, games.home_team)]
+    games["prior_fill"] = [crowd.fill.get((s, t)) if len(crowd) else None
+                           for s, t in zip(games.season, games.home_team)]
 
-    # --- 1. team-specific HFA, split-half repeatability -----------------
-    print("\n1. TEAM-SPECIFIC HFA (home resid - away resid, per team)")
-    for label, col in (("ours", "resid"), ("market", "mkt_resid")):
-        halves = []
-        for seasons in ((2021, 2022, 2023), (2024, 2025, 2026)):
-            part = df[df.season.isin(seasons)]
-            h = part.groupby("home_team")[col].agg(["mean", "count"])
-            a = part.groupby("away_team")[col].agg(["mean", "count"])
-            j = h.join(a, lsuffix="_h", rsuffix="_a").dropna()
-            j = j[(j.count_h >= 8) & (j.count_a >= 8)]
-            halves.append((j.mean_h + j.mean_a) / 2)  # away resid is -ve of home view
-        # Residuals are home-view. A team that is simply underrated shows
-        # +d at home and -d away, so the sum cancels; a team with extra
-        # home edge h shows +h at home and 0 away. Sum/2 isolates h.
-        both = pd.concat(halves, axis=1).dropna()
-        r = both.corr().iloc[0, 1]
-        print(f"   {label:6s} split-half r = {r:+.3f}  (n={len(both)} teams)")
+    df = bench.merge(games, on=["game_id", "season"], how="inner")
+    df = df[~df.neutral & df.fbs_both].copy()
+    df["resid"] = df.actual - df.ours
+    df["mkt_resid"] = df.actual - df.line
+    feat = features(df)
+    df = pd.concat([df, feat], axis=1).dropna(subset=list(feat.columns))
+    print(f"FBS-vs-FBS home-site games with full context: {len(df)} "
+          f"({df.season.min()}-{df.season.max()})")
+    print(f"mean resid: ours {df.resid.mean():+.2f}, market {df.mkt_resid.mean():+.2f}")
 
-    # --- 2. crowd size ---------------------------------------------------
-    print("\n2. CROWD: home resid by home team's PRIOR-season avg attendance")
-    pa = prior_attendance(sched)
-    df["prior_att"] = [pa.get((s, t)) for s, t in zip(df.season, df.home_team)]
-    fbs = df[(df.home_division == "fbs") & (df.away_division == "fbs")
-             & df.prior_att.notna()].copy()
-    # Placebo: same stadium size, but that team is on the ROAD. If big
-    # programs are just underrated, their road residual (flipped to their
-    # view) rises with crowd size too. If it's the crowd, it won't.
-    df["away_prior_att"] = [pa.get((s, t)) for s, t in zip(df.season, df.away_team)]
-    road = df[(df.home_division == "fbs") & (df.away_division == "fbs")
-              & df.away_prior_att.notna()]
-    xr = np.log(road.away_prior_att)
-    for col in ("resid", "mkt_resid"):
-        slope = np.polyfit(xr - xr.mean(), -road[col], 1)[0]
-        print(f"   PLACEBO road team's own stadium size, {col:9s}: "
-              f"{slope*np.log(2):+.2f} pts per doubling")
-    fbs["bucket"] = pd.qcut(fbs.prior_att, 5)
-    print(fbs.groupby("bucket", observed=True)[["resid", "mkt_resid"]]
-          .agg(["mean", "count"]).round(2).to_string())
-    x = np.log(fbs.prior_att)
-    for col in ("resid", "mkt_resid"):
-        slope = np.polyfit(x - x.mean(), fbs[col], 1)[0]
-        print(f"   {col:9s} slope per doubling of crowd: {slope*np.log(2):+.2f} pts")
+    print("\nIN-SAMPLE slope per unit (ours / market), one feature at a time:")
+    for f in feat.columns:
+        x = df[f] - df[f].mean()
+        slopes = [np.polyfit(x, df[c], 1)[0] for c in ("resid", "mkt_resid")]
+        se = df.resid.std() / np.sqrt((x ** 2).sum())
+        print(f"  {f:12s} {slopes[0]:+.2f} +/-{1.96 * se:.2f}   "
+              f"market {slopes[1]:+.2f}")
 
-    # --- 3. big game -----------------------------------------------------
-    print("\n3. BIG GAME: home resid by the WEAKER team's pregame Elo")
-    df["elo_h"] = pd.to_numeric(df.home_pregame_elo, errors="coerce")
-    df["elo_a"] = pd.to_numeric(df.away_pregame_elo, errors="coerce")
-    big = df[(df.home_division == "fbs") & (df.away_division == "fbs")
-             & df.elo_h.notna() & df.elo_a.notna()].copy()
-    big["floor"] = big[["elo_h", "elo_a"]].min(axis=1)
-    big["bucket"] = pd.qcut(big.floor, 5)
-    print(big.groupby("bucket", observed=True)[["resid", "mkt_resid"]]
-          .agg(["mean", "count"]).round(2).to_string())
-    top = big[(big.elo_h >= big.floor.quantile(.9))
-              & (big.elo_a >= big.floor.quantile(.9))]
-    print(f"   both top-10%-ish: n={len(top)} ours {top.resid.mean():+.2f}"
-          f" +/-{1.96*top.resid.std()/np.sqrt(len(top)):.2f}"
-          f"  market {top.mkt_resid.mean():+.2f}")
-    # Big crowd x big game interaction
-    both = big[big.prior_att.notna()]
-    loud = both[(both.prior_att >= 80000)
-                & (both.floor >= both.floor.quantile(.6))]
-    print(f"   80k+ crowd AND good opponent: n={len(loud)}"
-          f" ours {loud.resid.mean():+.2f}"
-          f" +/-{1.96*loud.resid.std()/np.sqrt(len(loud)):.2f}"
-          f"  market {loud.mkt_resid.mean():+.2f}")
+    # Team-specific HFA placebo: does a team's extra home edge repeat?
+    halves = []
+    for seasons in ((2021, 2022, 2023), (2024, 2025)):
+        part = df[df.season.isin(seasons)]
+        h = part.groupby("home_team").resid.agg(["mean", "count"])
+        a = part.groupby("away_team").resid.agg(["mean", "count"])
+        j = h.join(a, lsuffix="_h", rsuffix="_a").dropna()
+        j = j[(j.count_h >= 6) & (j.count_a >= 6)]
+        halves.append((j.mean_h + j.mean_a) / 2)
+    r = pd.concat(halves, axis=1).dropna().corr().iloc[0, 1]
+    print(f"\nTeam-specific HFA repeatability, 2021-23 vs 2024-25: r = {r:+.3f}")
 
-    # --- 4. out-of-sample MAE: fit on 2021-23, score 2024-25 ------------
-    print("\n4. HOLDOUT: fit on one era, score the other (both directions)")
-    everything = df[(df.home_division == "fbs") & (df.away_division == "fbs")].copy()
-    med = np.log(fbs.prior_att.median())
-    everything["crowd"] = np.log(everything.prior_att) - med
-    everything["big"] = (everything[["elo_h", "elo_a"]].min(axis=1) - 1400) / 200
-    everything = everything.dropna(subset=["crowd", "big"])
-    for tr, te in (((2021, 2022, 2023), (2024, 2025)),
-                   ((2024, 2025), (2021, 2022, 2023))):
-        train = everything[everything.season.isin(tr)]
-        test = everything[everything.season.isin(te)]
-        print(f"   train {tr} -> test {te}: n={len(test)}")
-        print("     test-set median resid by crowd quintile:",
-              test.groupby(pd.qcut(test.crowd, 5), observed=True)
-              .resid.median().round(2).tolist())
-        for feats in (["crowd"], ["big"], ["crowd", "big"]):
-            X = np.column_stack([np.ones(len(train))] + [train[f] for f in feats])
-            coef, *_ = np.linalg.lstsq(X, train.resid, rcond=None)
-            Xt = np.column_stack([test[f] for f in feats])
-            flat = np.abs(test.resid - coef[0]).mean()
-            gains = []
-            for shrink in (1.0, 0.5, 0.25):
-                pred = coef[0] + Xt @ (coef[1:] * shrink)
-                gains.append(flat - np.abs(test.resid - pred).mean())
-            print(f"     {'+'.join(feats):11s} coef {np.round(coef[1:], 2)}"
-                  f"  gain vs flat @100/50/25%: "
-                  + " / ".join(f"{g:+.3f}" for g in gains))
+    print("\nLEAVE-ONE-SEASON-OUT MAE gain vs flat (positive = better), "
+          "at 100/50/25% strength:")
+    candidates = [[f] for f in feat.columns] + [
+        ["x_crowd", "x_big_game"], ["x_fill", "x_travel"],
+        ["x_crowd", "x_altitude", "x_travel", "x_big_game"],
+        list(feat.columns)]
+    for feats in candidates:
+        pooled, seasons, ci = loso(df, feats)
+        wins = int((seasons > 0).sum())
+        print(f"  {'+'.join(x[2:] for x in feats):40s} "
+              + " / ".join(f"{g:+.3f}" for g in pooled)
+              + f"  +/-{ci:.3f}  seasons won {wins}/{len(seasons)}")
 
     if len(sys.argv) > 1:
-        print(fbs[fbs.home_team == sys.argv[1]][
-            ["season", "week", "away_team", "ours", "line", "actual",
-             "prior_att"]].to_string())
+        cols = ["season", "week", "away_team", "ours", "line", "actual",
+                "prior_att", "travel", "elo_h", "elo_a"]
+        print(df[df.home_team == sys.argv[1]][cols].to_string())
 
 
 if __name__ == "__main__":

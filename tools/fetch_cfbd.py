@@ -190,9 +190,12 @@ def fetch_priors(year: int, current: bool = False) -> None:
 
 
 def fetch_games(year: int, current: bool = False) -> None:
-    """Just the results (1 call). The mirror lacks 2021-22 bowls."""
+    """Just the results (1 call). The mirror lacks 2021-22 bowls, and its
+    attendance column is blank from 2025 on, so the current season is
+    refetched weekly."""
     grab("games", "/games", {"year": year, "seasonType": "both"},
-         str(year), "games")
+         str(year), "games",
+         max_age_days=CURRENT_REFRESH_DAYS if current else None)
 
 
 def fetch_context(year: int, current: bool = False) -> None:
@@ -308,6 +311,13 @@ def main() -> None:
         grab("coaches", "/coaches",
              {"minYear": FIRST_COACH_YEAR, "maxYear": newest},
              "coaches", max_age_days=CURRENT_REFRESH_DAYS)
+    if "games" in args.only:
+        # Capacity, elevation, dome, lat/long: one call covers every season.
+        grab("venues", "/venues", {}, "venues",
+             max_age_days=CURRENT_REFRESH_DAYS * 4)
+        # Each team's home venue + location, for travel distance.
+        grab("teams (all)", "/teams", {}, "teams_all",
+             max_age_days=CURRENT_REFRESH_DAYS * 4)
     write_manifest(args.years)
 
 
