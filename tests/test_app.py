@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from app.main import _base_context, _rank_url, _team_url  # noqa: E402
+from app.main import _base_context, _rank_url, _team_url, get_season  # noqa: E402
 
 
 def test_team_url_defaults_to_the_live_route_when_omitted():
@@ -47,3 +47,17 @@ def test_rank_url_still_defaults_normally():
     confirm the sentinel fix left its simpler default alone."""
     ctx = _base_context("rankings", 2026)
     assert ctx["rank_url"] is _rank_url
+
+
+def test_conference_races_never_include_fcs_teams():
+    """FCS teams are rated for graph connectivity (cfbrank.games) but
+    never shown -- rankings, Predict and resume all filter to FBS alone,
+    and Conference Races must too. Regression test for a real bug: an
+    unfiltered conference map let a handful of FBS-vs-FCS games drag
+    whole FCS conferences (Big Sky, Ivy League, ...) into this section.
+    """
+    data = get_season(2026)
+    fbs_teams = set(data.model.fbs_ratings())
+    for conf, standings in data.conference_races.items():
+        for team, _pct in standings:
+            assert team in fbs_teams, f"{team} ({conf}) is not an FBS team"

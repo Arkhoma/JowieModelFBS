@@ -139,7 +139,14 @@ def get_season(season: int) -> SeasonModel:
     ranked = sorted(model.fbs_ratings().items(), key=lambda kv: -kv[1])
     off_rank = _rank_fbs(offdef_model, offdef_model.offense_rating)
     def_rank = _rank_fbs(offdef_model, offdef_model.defense_rating)
-    conference_of = _conference_map(games)
+
+    # FCS teams are rated (see cfbrank.games for why) but never shown --
+    # the rankings table, Predict page and resume board all filter down
+    # to FBS alone, so the conference map does too. Without this filter,
+    # an FBS team's handful of FCS opponents pulled whole FCS conferences
+    # (Big Sky, Ivy League, ...) into the Conference Races section.
+    conference_of = {team: conf for team, conf in _conference_map(games).items()
+                     if model.divisions.get(team) == "fbs"}
 
     # Rest-of-season outlook: one shared Monte Carlo draw feeds both the
     # per-team projected record and the conference-race odds, so they
