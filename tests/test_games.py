@@ -118,9 +118,16 @@ def test_neutral_site_is_boolean(games_2024):
     assert sum(1 for g in games_2024 if g.neutral_site) > 20
 
 
-def test_live_season_loads_partial(  ):
-    """2026 is in progress: some games played, many not."""
+def test_live_season_loads_partial():
+    """2026 is in progress: some games played, many not.
+
+    A finished season (regular + bowls) runs ~1600 games (see
+    test_seasons_are_on_disk / 2024's count). Checking "partial" via a
+    game-count ceiling, instead of a hardcoded week number, means this
+    doesn't need editing every single week as the season moves along --
+    only once a year when 2026 itself wraps up.
+    """
     games = load_season(2026)
     assert games, "2026 should have completed games by week 3"
     assert all(g.season == 2026 for g in games)
-    assert max(g.week for g in games) <= 5
+    assert len(games) < 1400, "2026 looks like a complete season already"
