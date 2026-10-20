@@ -29,6 +29,7 @@ from cfbrank.games import (  # noqa: E402
 )
 from cfbrank.lines import home_lines  # noqa: E402
 from cfbrank.offdef_prior import fit_points_model  # noqa: E402
+from cfbrank.playoff import FIRST_ROUND, select_field, simulate_bracket  # noqa: E402
 from cfbrank.predict import Predictor  # noqa: E402
 from cfbrank.prior import home_field_prior  # noqa: E402
 from cfbrank.prior_model import build_roster_prior_or_empty  # noqa: E402
@@ -73,6 +74,8 @@ class SeasonModel:
     conference_races: dict[str, list[tuple[str, float]]] = None
     games: list = None
     remaining: list = None
+    playoff_field: list = None
+    playoff_odds: object = None
 
 
 def _build_epa_model(season: int, games, margin_prior):
@@ -145,8 +148,16 @@ def get_season(season: int) -> SeasonModel:
     # to FBS alone, so the conference map does too. Without this filter,
     # an FBS team's handful of FCS opponents pulled whole FCS conferences
     # (Big Sky, Ivy League, ...) into the Conference Races section.
-    conference_of = {team: conf for team, conf in _conference_map(games).items()
-                     if model.divisions.get(team) == "fbs"}
+    #
+    # "FBS Independents" is dropped too -- it isn't a real conference, its
+    # members never play a "conference game" by definition, so every team
+    # in it would sit at a permanent, meaningless 3-way tie that never
+    # updates with results. A playoff auto-bid for "winning" that would be
+    # nonsense, not a projection.
+    conference_of = {
+        team: conf for team, conf in _conference_map(games).items()
+        if model.divisions.get(team) == "fbs" and "independent" not in conf.lower()
+    }
 
     # Rest-of-season outlook: one shared Monte Carlo draw feeds both the
     # per-team projected record and the conference-race odds, so they
@@ -157,6 +168,21 @@ def get_season(season: int) -> SeasonModel:
     sim = simulate_remaining(remaining, predictor)
     projections = project_all([team for team, _ in ranked], records, sim)
     conference_races = project_conference_races(conference_of, games, sim)
+
+    # Playoff field: seeded from Resume rank (not Predictive -- see
+    # cfbrank.playoff for why), champions taken as each conference's
+    # likeliest finisher from the same conference-race odds above.
+    champion_of_conference = {
+        conf: standings[0][0] for conf, standings in conference_races.items()
+        if standings
+    }
+    try:
+        playoff_field = select_field(resume_rank, conference_of, champion_of_conference)
+        playoff_odds = simulate_bracket(playoff_field, predictor)
+    except ValueError:
+        # Too few ranked conferences/teams for a 12-team field (a thin
+        # fixture season, say) -- no playoff page rather than a broken one.
+        playoff_field, playoff_odds = None, None
 
     rankings = []
     for rank, (team, rating) in enumerate(ranked, 1):
@@ -194,6 +220,8 @@ def get_season(season: int) -> SeasonModel:
         uses_epa=epa_model is not None,
         games=games,
         remaining=remaining,
+        playoff_field=playoff_field,
+        playoff_odds=playoff_odds,
     )
 
 
@@ -302,6 +330,25 @@ def _team_game_log(
     return entries
 
 
+def _first_round_matchups(field: list, predictor: Predictor) -> list[dict]:
+    """The Round of 12's four concrete games.
+
+    Seeding is already locked in from the current standings, so these are
+    real matchups with a real spread -- unlike the deeper rounds, which
+    depend on who wins here and only exist as simulated odds.
+    """
+    by_seed = {t.seed: t for t in field}
+    matchups = []
+    for hi, lo in FIRST_ROUND:
+        home, away = by_seed[hi], by_seed[lo]
+        prediction = predictor.predict(home.team, away.team, neutral_site=False)
+        matchups.append({
+            "home": home, "away": away,
+            "home_win_probability": prediction.home_win_probability,
+        })
+    return matchups
+
+
 def _strength_of_schedule(games, team: str, model) -> float:
     """Average rating of every opponent faced."""
     opponents = [
@@ -333,7 +380,8 @@ SORTS = {"predictive": _rank_key("rank"), "resume": _rank_key("resume_rank"),
 # Absolute paths for the live app. tools/build_static_site.py renders the
 # same templates with a different `nav` dict (relative filenames) so a
 # GitHub Pages export needs no server -- one set of templates either way.
-NAV = {"home": "/", "predict": "/predict", "about": "/about", "static": "/static"}
+NAV = {"home": "/", "predict": "/predict", "about": "/about", "static": "/static",
+       "playoff": "/playoff"}
 
 
 def _rank_url(season: int, sort: str) -> str:
@@ -433,6 +481,26 @@ def team_page(request: Request, team_name: str, season: int | None = None):
         team=team_name,
         row=row,
         game_log=game_log,
+    ))
+
+
+@app.get("/playoff", response_class=HTMLResponse)
+def playoff_page(request: Request, season: int | None = None):
+    """Projected 12-team CFP field, seeded, with per-team bracket odds.
+
+    None when the season is too thin for a 12-team field (get_season
+    already tried and gave up) -- the template shows a plain message
+    instead of a broken bracket.
+    """
+    season = season or _latest_season()
+    data = get_season(season)
+    first_round = (_first_round_matchups(data.playoff_field, data.predictor)
+                  if data.playoff_field else [])
+    return TEMPLATES.TemplateResponse(request, "playoff.html", _base_context(
+        "playoff", season,
+        field=data.playoff_field,
+        odds=data.playoff_odds,
+        first_round=first_round,
     ))
 
 

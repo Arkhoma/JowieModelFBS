@@ -16,8 +16,8 @@ Usage:
 
 Without --season, every available season gets a rankings page (that's
 what the live site's season switcher expects to link to); Predict,
-About and every team page stay pinned to the latest season, same as
-the live defaults.
+About, every team page, and the Playoff page stay pinned to the latest
+season, same as the live defaults.
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from app.main import (  # noqa: E402
-    BENCHMARK_PATH, SORTS, _base_context, _predict_teams, _team_game_log,
-    get_season,
+    BENCHMARK_PATH, SORTS, _base_context, _first_round_matchups,
+    _predict_teams, _team_game_log, get_season,
 )
 from cfbrank.games import available_seasons  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
@@ -47,7 +47,7 @@ STATIC_SRC = ROOT / "app" / "static"
 # Every page lives flat in the output directory, so relative names with
 # no subfolders are enough -- see the "index.html" alias below.
 NAV = {"home": "index.html", "predict": "predict.html",
-       "about": "about.html", "static": "static"}
+       "about": "about.html", "static": "static", "playoff": "playoff.html"}
 
 
 def _rank_url(season: int, sort: str) -> str:
@@ -136,6 +136,19 @@ def build_team_pages(env: Environment, out_dir: Path, season: int) -> None:
         _write(out_dir, _team_url(team, season), html)
 
 
+def build_playoff(env: Environment, out_dir: Path, season: int) -> None:
+    """Latest season only, same convention as Predict/About/Team pages."""
+    data = get_season(season)
+    first_round = (_first_round_matchups(data.playoff_field, data.predictor)
+                  if data.playoff_field else [])
+    html = env.get_template("playoff.html").render(_base_context(
+        "playoff", season, nav=NAV,
+        field=data.playoff_field, odds=data.playoff_odds,
+        first_round=first_round,
+    ))
+    _write(out_dir, "playoff.html", html)
+
+
 def build(out_dir: Path, seasons: list[int] | None = None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     env = _env()
@@ -147,6 +160,7 @@ def build(out_dir: Path, seasons: list[int] | None = None) -> None:
     build_about(env, out_dir, latest)
     build_predict(env, out_dir, latest)
     build_team_pages(env, out_dir, latest)
+    build_playoff(env, out_dir, latest)
 
     # Root landing page = latest season, predictive sort. Only makes
     # sense if that page actually got built.

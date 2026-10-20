@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Playoff Projection {{ season }} | JowieModel FBS{% endblock %}
+
+{% block content %}
+
+<div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+  <div>
+    <h2 class="page-title text-3xl sm:text-4xl">{{ season }} Playoff Projection</h2>
+    <p class="text-sm text-muted mt-1">
+      12-team field, seeded by Resume rank. Round odds from 2,000 simulated brackets.
+    </p>
+  </div>
+</div>
+
+{% if not field %}
+<p class="text-sm text-muted">Not enough ranked conferences yet for a 12-team projection.</p>
+{% else %}
+
+<div class="mb-8">
+  <h3 class="page-title text-xl mb-3">Seeds 1&ndash;4: Bye to the Quarterfinals</h3>
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    {% for t in field if t.seed <= 4 %}
+    <div class="retro-card p-3">
+      <p class="text-xs text-muted uppercase tracking-wide">Seed {{ t.seed }}</p>
+      <p class="font-bold">{{ t.team }}</p>
+      <p class="text-xs text-muted">{{ t.conference }} champion</p>
+      <p class="text-xs text-muted mt-1">{{ "%.0f"|format(odds.won_it_all[t.team]) }}% to win it all</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="mb-8">
+  <h3 class="page-title text-xl mb-3">First Round</h3>
+  <div class="grid gap-3 sm:grid-cols-2">
+    {% for m in first_round %}
+    <div class="retro-card p-3">
+      <p class="text-sm">
+        <span class="font-bold">#{{ m.home.seed }} {{ m.home.team }}</span>
+        <span class="text-muted">({{ "%.0f"|format(m.home_win_probability * 100) }}%)</span>
+      </p>
+      <p class="text-xs text-muted my-1">vs</p>
+      <p class="text-sm">
+        <span class="font-bold">#{{ m.away.seed }} {{ m.away.team }}</span>
+        <span class="text-muted">({{ "%.0f"|format((1 - m.home_win_probability) * 100) }}%)</span>
+      </p>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="text-xs text-muted mt-2">Higher seed hosts. Every round after this is a neutral site.</p>
+</div>
+
+<div class="overflow-x-auto retro-card">
+  <table class="stat-table w-full text-sm">
+    <caption class="sr-only">Full 12-team field with bracket odds</caption>
+    <thead>
+      <tr>
+        <th scope="col" class="text-right px-3 py-2">Seed</th>
+        <th scope="col" class="text-left px-3 py-2">Team</th>
+        <th scope="col" class="text-left px-3 py-2">Bid</th>
+        <th scope="col" class="text-right px-3 py-2">Reach QF</th>
+        <th scope="col" class="text-right px-3 py-2">Reach SF</th>
+        <th scope="col" class="text-right px-3 py-2">Reach Final</th>
+        <th scope="col" class="text-right px-3 py-2">Win it all</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in field %}
+      <tr class="border-t border-ink/20 {% if t.seed <= 4 %}top12{% endif %}">
+        <td class="text-right px-3 py-2 tabular-nums font-bold">{{ t.seed }}</td>
+        <td class="px-3 py-2 font-bold">
+          {{ t.team }}
+          <span class="block text-xs font-normal text-muted">{{ t.conference }}</span>
+        </td>
+        <td class="px-3 py-2 text-xs">{{ "Auto bid" if t.champion else "At-large" }}</td>
+        <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.reached_quarterfinal[t.team]) }}%</td>
+        <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.reached_semifinal[t.team]) }}%</td>
+        <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.reached_championship[t.team]) }}%</td>
+        <td class="text-right px-3 py-2 tabular-nums font-bold text-crimson">{{ "%.0f"|format(odds.won_it_all[t.team]) }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-muted mt-4">
+  5 auto bids go to the highest-(Resume-rank)-ranked conference champions;
+  the top 4 of those get the bye. The other 7 spots are at-large, filled
+  by rank regardless of conference. "Champion" is each conference's most
+  likely finisher from the Conference Races projection, not a guarantee --
+  this whole page updates as that does.
+</p>
+
+{% endif %}
+{% endblock %}
