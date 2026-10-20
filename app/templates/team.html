@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{% if row %}{{ team }} {{ season }}{% else %}{{ team }}{% endif %} | JowieModel FBS{% endblock %}
+
+{% block content %}
+
+<div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+  <div>
+    <h2 class="page-title text-3xl sm:text-4xl">{{ team }}</h2>
+    {% if row %}
+    <p class="text-sm text-muted mt-1">{{ row.conference }} &middot; {{ season }}</p>
+    {% endif %}
+  </div>
+  <a href="{{ rank_url(season, 'predictive') }}"
+     class="retro-btn retro-btn-ghost px-3 py-1.5 text-sm">&larr; Back to rankings</a>
+</div>
+
+{% if not row %}
+<p class="text-sm text-muted">No {{ season }} data for "{{ team }}" -- it may not be an FBS team this season.</p>
+{% else %}
+
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+  <div class="retro-card p-4">
+    <p class="text-xs text-muted uppercase tracking-wide">Record</p>
+    <p class="text-2xl font-bold tabular-nums">{{ row.wins }}-{{ row.losses }}</p>
+  </div>
+  <div class="retro-card p-4">
+    <p class="text-xs text-muted uppercase tracking-wide">Projected</p>
+    <p class="text-2xl font-bold tabular-nums">{{ row.projection.projected_record }}</p>
+    {% if row.projection.games_remaining %}
+    <p class="text-xs text-muted">{{ "%.0f"|format(row.projection.bowl_eligible_pct) }}% bowl odds</p>
+    {% else %}
+    <p class="text-xs text-muted">Season complete</p>
+    {% endif %}
+  </div>
+  <div class="retro-card p-4">
+    <p class="text-xs text-muted uppercase tracking-wide">Predictive rank</p>
+    <p class="text-2xl font-bold tabular-nums">#{{ row.rank }}</p>
+    <p class="text-xs text-muted">{{ "%+.1f"|format(row.rating) }} pts</p>
+  </div>
+  <div class="retro-card p-4">
+    <p class="text-xs text-muted uppercase tracking-wide">Resume rank</p>
+    <p class="text-2xl font-bold tabular-nums">{% if row.resume_rank %}#{{ row.resume_rank }}{% else %}&mdash;{% endif %}</p>
+    {% if row.best_win %}<p class="text-xs text-muted">Best win: {{ row.best_win }}</p>{% endif %}
+  </div>
+</div>
+
+<div class="overflow-x-auto retro-card">
+  <table class="stat-table w-full text-sm">
+    <caption class="sr-only">{{ team }}'s {{ season }} schedule</caption>
+    <thead>
+      <tr>
+        <th scope="col" class="text-right px-3 py-2">Wk</th>
+        <th scope="col" class="text-left px-3 py-2">Opponent</th>
+        <th scope="col" class="text-right px-3 py-2">Result</th>
+        <th scope="col" class="text-right px-3 py-2">Model said</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for g in game_log %}
+      <tr class="border-t border-ink/20">
+        <td class="text-right px-3 py-2 tabular-nums">{{ g.week }}</td>
+        <td class="px-3 py-2">
+          {% if g.location == "neutral" %}vs {{ g.opponent }} <span class="text-xs text-muted">(neutral)</span>
+          {% elif g.location == "at" %}at {{ g.opponent }}
+          {% else %}vs {{ g.opponent }}{% endif %}
+        </td>
+        <td class="text-right px-3 py-2 tabular-nums font-bold">
+          {{ g.result if g.played else "\u2014" }}
+        </td>
+        <td class="text-right px-3 py-2 tabular-nums">
+          {{ "%.0f"|format(g.win_probability * 100) }}% to win
+          {% if g.played and g.upset %}<span class="block text-xs text-crimson">upset</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-muted mt-4">
+  "Model said" is this same predictor's own win probability for that matchup --
+  for played games, it's graded against what actually happened, not restated after the fact.
+</p>
+
+{% endif %}
+{% endblock %}

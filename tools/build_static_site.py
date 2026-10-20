@@ -15,13 +15,15 @@ Usage:
     python tools/build_static_site.py [--out _site] [--season 2026]
 
 Without --season, every available season gets a rankings page (that's
-what the live site's season switcher expects to link to); Predict and
-About stay pinned to the latest season, same as the live defaults.
+what the live site's season switcher expects to link to); Predict,
+About and every team page stay pinned to the latest season, same as
+the live defaults.
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -31,7 +33,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from app.main import (  # noqa: E402
-    BENCHMARK_PATH, SORTS, _base_context, _predict_teams, get_season,
+    BENCHMARK_PATH, SORTS, _base_context, _predict_teams, _team_game_log,
+    get_season,
 )
 from cfbrank.games import available_seasons  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
@@ -51,6 +54,17 @@ def _rank_url(season: int, sort: str) -> str:
     return f"rankings-{season}-{sort}.html"
 
 
+def _team_slug(team: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", team.lower()).strip("-")
+
+
+def _team_url(team: str, season: int) -> str:
+    """Team pages are only built for the latest season (build_team_pages),
+    so `season` is accepted but ignored here -- the live app's `_team_url`
+    uses it because every season there is servable on demand."""
+    return f"team-{_team_slug(team)}.html"
+
+
 def _env() -> Environment:
     return Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
@@ -62,13 +76,20 @@ def _write(out_dir: Path, name: str, html: str) -> None:
     (out_dir / name).write_text(html, encoding="utf-8")
 
 
-def build_rankings(env: Environment, out_dir: Path, seasons: list[int]) -> None:
+def build_rankings(
+    env: Environment, out_dir: Path, seasons: list[int], latest: int,
+) -> None:
     for season in seasons:
         data = get_season(season)
+        # Team pages only exist for the latest season (build_team_pages);
+        # an older season's table keeps team names as plain text rather
+        # than link to a page that reflects the wrong season's numbers.
+        team_url = _team_url if season == latest else None
         for sort_key, key_fn in SORTS.items():
             rows = sorted(data.rankings, key=key_fn)
             html = env.get_template("rankings.html").render(_base_context(
                 "rankings", season, nav=NAV, rank_url=_rank_url,
+                team_url=team_url,
                 rankings=rows, sort=sort_key, model=data.model,
                 n_games=data.n_games, max_week=data.max_week,
                 has_postseason=data.has_postseason,
@@ -100,6 +121,21 @@ def build_predict(env: Environment, out_dir: Path, season: int) -> None:
     _write(out_dir, "predict.html", html)
 
 
+def build_team_pages(env: Environment, out_dir: Path, season: int) -> None:
+    """One flat page per FBS team, latest season only -- same reasoning as
+    build_predict: ratings are season-specific, and _team_url above only
+    has an opinion about the latest season's filenames."""
+    data = get_season(season)
+    for row in data.rankings:
+        team = row["team"]
+        game_log = _team_game_log(team, data.games, data.remaining, data.predictor)
+        html = env.get_template("team.html").render(_base_context(
+            "rankings", season, nav=NAV, rank_url=_rank_url,
+            team=team, row=row, game_log=game_log,
+        ))
+        _write(out_dir, _team_url(team, season), html)
+
+
 def build(out_dir: Path, seasons: list[int] | None = None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     env = _env()
@@ -107,9 +143,10 @@ def build(out_dir: Path, seasons: list[int] | None = None) -> None:
     seasons = seasons or all_seasons
     latest = max(all_seasons)
 
-    build_rankings(env, out_dir, seasons)
+    build_rankings(env, out_dir, seasons, latest)
     build_about(env, out_dir, latest)
     build_predict(env, out_dir, latest)
+    build_team_pages(env, out_dir, latest)
 
     # Root landing page = latest season, predictive sort. Only makes
     # sense if that page actually got built.

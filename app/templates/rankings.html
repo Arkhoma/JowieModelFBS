@@ -67,7 +67,11 @@
       <tr class="border-t border-ink/20 {% if shown and shown <= 12 %}top12{% endif %}">
         <td class="pin-rank text-right px-3 py-2 tabular-nums font-bold">{{ shown or "-" }}</td>
         <td class="pin-team px-3 py-2 font-bold">
+          {% if team_url %}
+          <a href="{{ team_url(row.team, season) }}" class="hover:underline">{{ row.team }}</a>
+          {% else %}
           {{ row.team }}
+          {% endif %}
           <span class="block text-xs font-normal text-muted">{{ row.conference }}</span>
         </td>
         <td class="text-right px-3 py-2 tabular-nums">{{ row.wins }}-{{ row.losses }}</td>

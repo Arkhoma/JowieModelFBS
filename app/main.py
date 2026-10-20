@@ -10,6 +10,7 @@ import sys
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import quote
 
 import numpy as np
 from fastapi import FastAPI, Form, Request
@@ -70,6 +71,8 @@ class SeasonModel:
     has_postseason: bool = False
     uses_epa: bool = False
     conference_races: dict[str, list[tuple[str, float]]] = None
+    games: list = None
+    remaining: list = None
 
 
 def _build_epa_model(season: int, games, margin_prior):
@@ -182,6 +185,8 @@ def get_season(season: int) -> SeasonModel:
         has_postseason=any(g.season_type == POSTSEASON for g in games),
         conference_races=conference_races,
         uses_epa=epa_model is not None,
+        games=games,
+        remaining=remaining,
     )
 
 
@@ -232,6 +237,64 @@ def _conference_map(games) -> dict[str, str]:
     return conference_of
 
 
+def _team_game_log(
+    team: str, games: list, remaining: list, predictor: Predictor,
+) -> list[dict]:
+    """One team's full schedule: played results plus upcoming predictions,
+    in week order.
+
+    The "model said" column for a PLAYED game is this exact predictor
+    evaluated on that matchup -- not a separate backtest metric -- so a
+    reader comparing it against the actual score is comparing the model
+    to itself honestly, calibration warts included.
+    """
+    entries = []
+    for g in games:
+        if team not in (g.home_team, g.away_team):
+            continue
+        is_home = g.home_team == team
+        opponent = g.away_team if is_home else g.home_team
+        team_points = g.home_points if is_home else g.away_points
+        opp_points = g.away_points if is_home else g.home_points
+        won = team_points > opp_points
+        prediction = predictor.predict(g.home_team, g.away_team, g.neutral_site)
+        win_probability = (prediction.home_win_probability if is_home
+                           else 1 - prediction.home_win_probability)
+        entries.append({
+            "week": g.week,
+            "opponent": opponent,
+            "location": "neutral" if g.neutral_site else ("vs" if is_home else "at"),
+            "played": True,
+            "result": f"{'W' if won else 'L'} {team_points}-{opp_points}",
+            "win_probability": win_probability,
+            "upset": won != (win_probability >= 0.5),
+        })
+
+    ratings = predictor.model.ratings
+    for g in remaining:
+        if team not in (g.home_team, g.away_team):
+            continue
+        if g.home_team not in ratings or g.away_team not in ratings:
+            continue  # same "no opinion, no guess" rule as simulate_remaining
+        is_home = g.home_team == team
+        opponent = g.away_team if is_home else g.home_team
+        prediction = predictor.predict(g.home_team, g.away_team, g.neutral_site)
+        win_probability = (prediction.home_win_probability if is_home
+                           else 1 - prediction.home_win_probability)
+        entries.append({
+            "week": g.week,
+            "opponent": opponent,
+            "location": "neutral" if g.neutral_site else ("vs" if is_home else "at"),
+            "played": False,
+            "result": None,
+            "win_probability": win_probability,
+            "upset": None,
+        })
+
+    entries.sort(key=lambda e: e["week"])
+    return entries
+
+
 def _strength_of_schedule(games, team: str, model) -> float:
     """Average rating of every opponent faced."""
     opponents = [
@@ -270,12 +333,26 @@ def _rank_url(season: int, sort: str) -> str:
     return f"/?season={season}&sort={sort}"
 
 
+def _team_url(team: str, season: int) -> str:
+    return f"/team/{quote(team)}?season={season}"
+
+
+# Sentinel so _base_context can tell "team_url wasn't passed, default to
+# the live route" apart from "team_url was explicitly passed as None,
+# meaning no link at all." build_static_site.py relies on the second
+# case for seasons that don't get a team page (every season but the
+# latest) -- a plain `team_url=None` falling back to the live site's
+# /team/ path there would silently ship a dead link into the static
+# export.
+_UNSET = object()
+
+
 def _base_context(
     active_tab: str, season: int,
-    nav: dict | None = None, rank_url=None, **extra,
+    nav: dict | None = None, rank_url=None, team_url=_UNSET, **extra,
 ) -> dict:
-    """Shared page context. `nav`/`rank_url` default to the live routes'
-    absolute paths; tools/build_static_site.py overrides both with
+    """Shared page context. `nav`/`rank_url`/`team_url` default to the live
+    routes' absolute paths; tools/build_static_site.py overrides them with
     relative filenames so the exact same templates render a standalone
     static export."""
     return {
@@ -284,6 +361,7 @@ def _base_context(
         "seasons": available_seasons(),
         "nav": nav or NAV,
         "rank_url": rank_url or _rank_url,
+        "team_url": _team_url if team_url is _UNSET else team_url,
         **extra,
     }
 
@@ -328,6 +406,26 @@ def rankings_page(
         max_week=data.max_week,
         has_postseason=data.has_postseason,
         conference_races=data.conference_races,
+    ))
+
+
+@app.get("/team/{team_name}", response_class=HTMLResponse)
+def team_page(request: Request, team_name: str, season: int | None = None):
+    """One team's card: record, projection, and full game log.
+
+    `team_name` comes in URL-decoded by FastAPI already, so this matches
+    directly against the rankings dict built from the same team names.
+    """
+    season = season or _latest_season()
+    data = get_season(season)
+    row = next((r for r in data.rankings if r["team"] == team_name), None)
+    game_log = (_team_game_log(team_name, data.games, data.remaining, data.predictor)
+                if row else [])
+    return TEMPLATES.TemplateResponse(request, "team.html", _base_context(
+        "rankings", season,
+        team=team_name,
+        row=row,
+        game_log=game_log,
     ))
 
 
