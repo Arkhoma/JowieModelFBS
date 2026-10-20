@@ -10,13 +10,17 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { theme: { extend: {
-      // Crimson primary on cream, ink for contrast, slate for quiet UI.
-      // Deliberately no gold: crimson + gold reads as USC.
+      // Navy + brick, lifted from the NCAA's own retro pennant-and-
+      // football mark: navy carries the structure (header, headings,
+      // buttons, table headers); brick is the pop accent (alerts,
+      // upsets, the headline stat on a page). Cream stays the page
+      // background -- a 90s sports-page look, not a redesign.
       colors: {
         paper:   "#f5efe0",   // page background
         card:    "#fffbf2",
         ink:     "#1c1a17",
-        crimson: { DEFAULT: "#a51c30", dark: "#7d1523", light: "#f3dde0" },
+        navy:    { DEFAULT: "#2c3a63", dark: "#1f2947", light: "#dde2ef" },
+        brick:   { DEFAULT: "#a3431f", dark: "#7c3015", light: "#f1ddd0" },
         muted:   "#5f574b",   // 6.3:1 on paper, WCAG AA
         line:    "#d8cfbd",   // hairline borders
       },
@@ -30,9 +34,9 @@
 <body class="bg-paper text-ink min-h-screen font-sans">
 
   <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2
-     focus:left-2 bg-paper text-crimson border-2 border-crimson px-3 py-1 z-50">Skip to content</a>
+     focus:left-2 bg-paper text-brick border-2 border-brick px-3 py-1 z-50">Skip to content</a>
 
-  <header class="bg-crimson text-paper">
+  <header class="bg-navy text-paper">
     <div class="max-w-6xl mx-auto px-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 pt-4 sm:py-3">
       <a href="{{ nav.home }}" class="flex items-center gap-3 group" aria-label="JowieModel FBS home">
         <img src="{{ nav.static }}/logo.svg" alt="" class="h-10 sm:h-12 w-auto">

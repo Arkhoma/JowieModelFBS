@@ -7,7 +7,7 @@
   </g>
   <g transform="rotate(-20 48 25)">
     <!-- Offset drop shadow, then the ball -->
-    <ellipse cx="51" cy="28" rx="26" ry="15" fill="#7d1523"/>
+    <ellipse cx="51" cy="28" rx="26" ry="15" fill="#7c3015"/>
     <ellipse cx="48" cy="25" rx="26" ry="15" fill="#1c1a17" stroke="#f5efe0" stroke-width="2.5"/>
     <!-- End stripes -->
     <path d="M30 14.5 Q26 25 30 35.5" fill="none" stroke="#f5efe0" stroke-width="3"/>

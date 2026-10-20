@@ -83,7 +83,7 @@
         </td>
         {% for key, rank, value in cols %}
         <td class="text-right px-3 py-2 tabular-nums">
-          <span class="font-bold {% if key == sort %}text-crimson{% endif %}">#{{ rank or "-" }}</span>
+          <span class="font-bold {% if key == sort %}text-navy{% endif %}">#{{ rank or "-" }}</span>
           <span class="block text-xs text-muted">{{ value }}</span>
         </td>
         {% endfor %}
@@ -100,7 +100,7 @@
   top-25 team would expect. Off/Def don't affect the rank. Crimson bar = top 12.
   Projected = most likely final record from 2,000 simulations of the
   remaining schedule, using this same model's own win probabilities.
-  <a href="{{ nav.about }}" class="underline text-crimson">How it works</a>
+  <a href="{{ nav.about }}" class="underline text-brick">How it works</a>
 </p>
 
 {% if conference_races %}

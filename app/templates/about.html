@@ -31,7 +31,7 @@
         <td class="px-4 py-2 text-right tabular-nums">{{ "{:,}".format(g.n) }}</td>
         <td class="px-4 py-2 text-right tabular-nums">{{ "%.2f"|format(g.mae) }}</td>
         <td class="px-4 py-2 text-right tabular-nums text-muted">{{ "%.2f"|format(g.line_mae) }}</td>
-        <td class="px-4 py-2 text-right tabular-nums font-bold {{ 'text-crimson' if g.gap > 0 }}">{{ "%+.2f"|format(g.gap) }}</td>
+        <td class="px-4 py-2 text-right tabular-nums font-bold {{ 'text-brick' if g.gap > 0 }}">{{ "%+.2f"|format(g.gap) }}</td>
         <td class="px-4 py-2 text-right tabular-nums">{{ "%.1f%%"|format(g.su * 100) }}</td>
         <td class="px-4 py-2 text-right tabular-nums text-muted hidden sm:table-cell">{{ "%.1f%%"|format(g.line_su * 100) }}</td>
       </tr>
@@ -79,7 +79,7 @@
   </p>
   {% endif %}
   {% else %}
-  <p class="text-sm text-crimson">No benchmark yet. Run <code>python tools/benchmark_vs_market.py</code>.</p>
+  <p class="text-sm text-brick">No benchmark yet. Run <code>python tools/benchmark_vs_market.py</code>.</p>
   {% endif %}
 </section>
 
@@ -136,7 +136,7 @@
         <tr class="border-t border-ink/20">
           <td class="px-4 py-2">{{ change }}</td>
           <td class="px-4 py-2 text-right tabular-nums">{{ effect|safe }}</td>
-          <td class="px-4 py-2 font-bold {{ 'text-crimson' if kept else 'text-muted' }}">{{ result }}</td>
+          <td class="px-4 py-2 font-bold {{ 'text-brick' if kept else 'text-muted' }}">{{ result }}</td>
         </tr>
         {% endfor %}
       </tbody>

@@ -1,7 +1,10 @@
-/* JowieModel FBS -- clean 90s sports-page look. Crimson primary on cream.
-   Palette lives in tailwind.config (base.html); keep these hexes in sync:
+/* JowieModel FBS -- clean 90s sports-page look, lifted from the NCAA's
+   own retro pennant-and-football mark: navy for structure, brick-red as
+   the pop accent, cream page background. Palette lives in tailwind.config
+   (base.html); keep these hexes in sync:
      cream #f5efe0   card #fffbf2   ink #1c1a17   line #d8cfbd
-     crimson #a51c30 crimson-dark #7d1523 crimson-light #f3dde0
+     navy #2c3a63    navy-dark #1f2947    navy-light #dde2ef
+     brick #a3431f   brick-dark #7c3015   brick-light #f1ddd0
    One typeface (Archivo); weight and case carry the hierarchy. */
 
 /* ---- Header ------------------------------------------------------- */
@@ -9,7 +12,7 @@
   font-weight: 800;
   font-style: italic;
   letter-spacing: -.01em;
-  text-shadow: 2px 2px 0 #7d1523;
+  text-shadow: 2px 2px 0 #7c3015;
 }
 .wordmark-badge {
   display: inline-block;
@@ -20,19 +23,20 @@
   letter-spacing: .08em;
   vertical-align: middle;
   background: #f5efe0;
-  color: #a51c30;
+  color: #a3431f;
   text-shadow: none;
   transform: skewX(-10deg);
 }
-/* Thin cream / ink pinstripe under the header, a nod to 90s broadcasts. */
+/* Thin cream / ink / brick pinstripe under the header -- a nod to 90s
+   broadcasts, and to the NCAA mark's own layered pennant stripe. */
 .header-stripe {
   height: 6px;
-  background: linear-gradient(#f5efe0 0 2px, #1c1a17 2px 4px, #7d1523 4px);
+  background: linear-gradient(#f5efe0 0 2px, #1c1a17 2px 4px, #7c3015 4px);
 }
 
 .nav-tab { color: #f5efe0; border-bottom: 3px solid transparent; }
-.nav-tab:hover { background: #7d1523; }
-.nav-tab[aria-current="page"] { border-bottom-color: #f5efe0; background: #7d1523; }
+.nav-tab:hover { background: #1f2947; }
+.nav-tab[aria-current="page"] { border-bottom-color: #f5efe0; background: #1f2947; }
 
 /* ---- Headings ----------------------------------------------------- */
 .page-title {
@@ -40,14 +44,14 @@
   font-style: italic;
   text-transform: uppercase;
   letter-spacing: -.01em;
-  color: #a51c30;
+  color: #2c3a63;
   line-height: 1.1;
 }
 .section-title {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #a51c30;
+  color: #2c3a63;
 }
 .eyebrow {
   font-weight: 600;
@@ -61,39 +65,40 @@
 .retro-card {
   background: #fffbf2;
   border: 2px solid #1c1a17;
-  box-shadow: 4px 4px 0 #a51c30;
+  box-shadow: 4px 4px 0 #2c3a63;
 }
 
-/* Headline stat card: crimson fill, everything inside cream. */
+/* Headline stat card: brick fill, a pop of color against the mostly-navy
+   page, everything inside cream. */
 .stat-note { color: #5f574b; }
-.retro-card.stat-accent { background: #a51c30; color: #f5efe0; box-shadow: 4px 4px 0 #1c1a17; }
+.retro-card.stat-accent { background: #a3431f; color: #f5efe0; box-shadow: 4px 4px 0 #1c1a17; }
 .stat-accent .eyebrow, .stat-accent .stat-note { color: #f5efe0; }
 
 .retro-btn {
-  background: #a51c30;
+  background: #2c3a63;
   color: #f5efe0;
-  border: 2px solid #a51c30;
+  border: 2px solid #2c3a63;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .05em;
 }
-.retro-btn:hover { background: #7d1523; border-color: #7d1523; }
-.retro-btn-ghost { background: #fffbf2; color: #a51c30; }
-.retro-btn-ghost:hover { background: #f3dde0; color: #7d1523; }
+.retro-btn:hover { background: #1f2947; border-color: #1f2947; }
+.retro-btn-ghost { background: #fffbf2; color: #2c3a63; }
+.retro-btn-ghost:hover { background: #dde2ef; color: #1f2947; }
 
 /* Segmented control (sort tabs). */
-.segmented { display: inline-flex; border: 2px solid #a51c30; background: #fffbf2; }
+.segmented { display: inline-flex; border: 2px solid #2c3a63; background: #fffbf2; }
 .segmented a {
   padding: .4rem .9rem;
   font-weight: 600;
   font-size: .875rem;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #a51c30;
+  color: #2c3a63;
 }
-.segmented a + a { border-left: 2px solid #a51c30; }
-.segmented a:hover { background: #f3dde0; }
-.segmented a[aria-current="true"] { background: #a51c30; color: #f5efe0; }
+.segmented a + a { border-left: 2px solid #2c3a63; }
+.segmented a:hover { background: #dde2ef; }
+.segmented a[aria-current="true"] { background: #2c3a63; color: #f5efe0; }
 
 /* Season picker: a native <details> menu, works without JavaScript. */
 .menu { position: relative; }
@@ -117,14 +122,15 @@
   overflow-y: auto;
 }
 .menu-list a { display: block; padding: .5rem 1rem; text-align: right; }
-.menu-list a:hover { background: #f3dde0; }
-.menu-list a[aria-current="true"] { background: #a51c30; color: #f5efe0; font-weight: 600; }
+.menu-list a:hover { background: #dde2ef; }
+.menu-list a[aria-current="true"] { background: #2c3a63; color: #f5efe0; font-weight: 600; }
 
-/* Scoreboard digits: cream on black, crimson frame. */
+/* Scoreboard digits: cream on black, brick frame -- a pop of color on an
+   otherwise navy-and-cream page. */
 .scoreboard {
   background: #111;
   color: #f5efe0;
-  border-bottom: 4px solid #a51c30;
+  border-bottom: 4px solid #a3431f;
   font-variant-numeric: tabular-nums;
 }
 
@@ -149,14 +155,16 @@ select:focus-visible, summary:focus-visible, [role="option"]:focus-visible {
 .stat-table tbody tr { background: #fffbf2; }
 .stat-table tbody tr:nth-child(even) { background: #f7f1e3; }
 .stat-table thead th {
-  background: #a51c30;
+  background: #2c3a63;
   color: #f5efe0;
   font-weight: 600;
   font-size: .75rem;
   text-transform: uppercase;
   letter-spacing: .06em;
 }
-.stat-table tr.top12 td:first-child { box-shadow: inset 4px 0 0 #a51c30; }
+/* Top-12 stripe stays brick -- a pop that marks a row as notable, distinct
+   from the navy structural color used for the table itself. */
+.stat-table tr.top12 td:first-child { box-shadow: inset 4px 0 0 #a3431f; }
 
 /* Wide tables scroll sideways on phones; rank + team stay pinned. */
 .stat-table .pin-rank { position: sticky; left: 0; width: 3rem; min-width: 3rem;
@@ -166,7 +174,7 @@ select:focus-visible, summary:focus-visible, [role="option"]:focus-visible {
 /* Header cells need their own opaque fill: `inherit` there resolves to the
    transparent <tr>, which let scrolled headings show through. */
 .stat-table thead .pin-rank,
-.stat-table thead .pin-team { background: #a51c30; z-index: 2; }
+.stat-table thead .pin-team { background: #2c3a63; z-index: 2; }
 
 @media (max-width: 639px) {
   .stat-table th, .stat-table td { padding-left: .5rem; padding-right: .5rem; }
@@ -175,8 +183,8 @@ select:focus-visible, summary:focus-visible, [role="option"]:focus-visible {
 
 /* ---- Team search combobox ----------------------------------------- */
 .combo-list { max-height: 16rem; overflow-y: auto; }
-.combo-list [aria-selected="true"] { background: #a51c30; color: #f5efe0; }
-.combo-list [aria-selected="true"] .text-muted { color: #f3dde0; }
+.combo-list [aria-selected="true"] { background: #2c3a63; color: #f5efe0; }
+.combo-list [aria-selected="true"] .text-muted { color: #dde2ef; }
 
 @media (prefers-reduced-motion: no-preference) {
   .retro-btn, .nav-tab, .segmented a { transition: background-color .12s; }

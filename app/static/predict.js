@@ -142,7 +142,7 @@
   function render(p) {
     const homePct = Math.round(p.winProbability * 100);
     const awayPct = 100 - homePct;
-    const rows = [[p.home, homePct, "bg-crimson"], [p.away, awayPct, "bg-ink"]];
+    const rows = [[p.home, homePct, "bg-brick"], [p.away, awayPct, "bg-ink"]];
 
     result.innerHTML = `
       <div class="retro-card overflow-hidden">
@@ -184,7 +184,7 @@
               ${p.factors.map(([label, value]) => `
                 <tr class="border-b border-dashed border-muted last:border-0">
                   <td class="py-1.5">${esc(label)}</td>
-                  <td class="py-1.5 text-right tabular-nums font-bold ${value < 0 ? "text-crimson" : ""}">${fmtSigned(value, 2)}</td>
+                  <td class="py-1.5 text-right tabular-nums font-bold ${value < 0 ? "text-brick" : ""}">${fmtSigned(value, 2)}</td>
                 </tr>`).join("")}
             </tbody></table>
           </div>
@@ -199,7 +199,7 @@
 
   function renderError(message) {
     result.innerHTML = `
-      <div class="retro-card p-4 text-crimson font-bold" role="alert">
+      <div class="retro-card p-4 text-brick font-bold" role="alert">
         &#9888; ${esc(message)}
       </div>`;
   }
