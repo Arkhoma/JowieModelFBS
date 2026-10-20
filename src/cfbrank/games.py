@@ -151,6 +151,86 @@ def _row_to_game(row: dict[str, str]) -> Game | None:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class ScheduledGame:
+    """One not-yet-played game -- for projections, not ratings.
+
+    Deliberately score-free (a Game always has a final). Keeping this as
+    a separate type means a projection can never accidentally be fed
+    into code that expects a completed result.
+    """
+
+    season: int
+    week: int
+    kickoff: datetime | None
+    home_team: str
+    away_team: str
+    home_division: str
+    away_division: str
+    neutral_site: bool
+    conference_game: bool
+
+
+def _row_to_scheduled_game(row: dict[str, str]) -> ScheduledGame | None:
+    """The mirror image of `_row_to_game`: keep only games with no score yet.
+
+    Same division filter as rated games, so a projection never offers an
+    opinion about a team the model doesn't rate.
+    """
+    if not (_blank(row.get("home_points")) or _blank(row.get("away_points"))):
+        return None  # already played; load_season covers it
+
+    home_team = (row.get("home_team") or "").strip()
+    away_team = (row.get("away_team") or "").strip()
+    if not home_team or not away_team:
+        return None  # bowl slot not yet matched up ("TBD" vs "TBD")
+
+    home_division = (row.get("home_division") or "").strip().lower()
+    away_division = (row.get("away_division") or "").strip().lower()
+    if home_division not in RATED_DIVISIONS or away_division not in RATED_DIVISIONS:
+        return None
+
+    try:
+        season = int(row["season"])
+        week = int(row["week"])
+    except (KeyError, ValueError):
+        return None
+
+    return ScheduledGame(
+        season=season,
+        week=week,
+        kickoff=_parse_kickoff(row.get("start_date")),
+        home_team=home_team,
+        away_team=away_team,
+        home_division=home_division,
+        away_division=away_division,
+        neutral_site=_parse_bool(row.get("neutral_site")),
+        conference_game=_parse_bool(row.get("conference_game")),
+    )
+
+
+def load_remaining_schedule(
+    season: int, directory: Path = RAW_SCHEDULES
+) -> list[ScheduledGame]:
+    """This season's not-yet-played FBS/FCS games, for projections.
+
+    Reads the same schedule file `load_season` does, keeping the
+    opposite set of rows. Bowls that haven't been matched up yet
+    ("TBD" vs "TBD") are dropped, same as any other unusable row.
+    """
+    path = directory / f"schedules_{season}.csv"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"No schedule file for {season} at {path}. "
+            "Run: python tools/fetch_mirror.py"
+        )
+    rows = _read_rows(path)
+    games = [g for g in map(_row_to_scheduled_game, rows) if g is not None]
+    games.sort(key=lambda g: (g.week, g.kickoff or datetime.max.replace(
+        tzinfo=timezone.utc)))
+    return games
+
+
 def _read_rows(path: Path, encoding: str = "utf-8") -> list[dict[str, str]]:
     with path.open(encoding=encoding, newline="") as handle:
         return list(csv.DictReader(handle))

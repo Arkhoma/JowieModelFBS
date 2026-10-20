@@ -23,12 +23,17 @@ from cfbrank.ensemble import EFFICIENCY_METRIC, EnsembleModel  # noqa: E402
 from cfbrank.epa_ridge import (  # noqa: E402
     build_epa_games, fit_epa_ratings_primed, get_ep_model,
 )
-from cfbrank.games import POSTSEASON, available_seasons, load_season  # noqa: E402
+from cfbrank.games import (  # noqa: E402
+    POSTSEASON, available_seasons, load_remaining_schedule, load_season,
+)
 from cfbrank.lines import home_lines  # noqa: E402
 from cfbrank.offdef_prior import fit_points_model  # noqa: E402
 from cfbrank.predict import Predictor  # noqa: E402
 from cfbrank.prior import home_field_prior  # noqa: E402
 from cfbrank.prior_model import build_roster_prior_or_empty  # noqa: E402
+from cfbrank.projection import (  # noqa: E402
+    TeamProjection, project_all, project_conference_races, simulate_remaining,
+)
 from cfbrank.resume import build_resumes, rank_resumes  # noqa: E402
 from cfbrank.ridge import fit  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
@@ -64,6 +69,7 @@ class SeasonModel:
     max_week: int
     has_postseason: bool = False
     uses_epa: bool = False
+    conference_races: dict[str, list[tuple[str, float]]] = None
 
 
 def _build_epa_model(season: int, games, margin_prior):
@@ -130,18 +136,30 @@ def get_season(season: int) -> SeasonModel:
     ranked = sorted(model.fbs_ratings().items(), key=lambda kv: -kv[1])
     off_rank = _rank_fbs(offdef_model, offdef_model.offense_rating)
     def_rank = _rank_fbs(offdef_model, offdef_model.defense_rating)
+    conference_of = _conference_map(games)
+
+    # Rest-of-season outlook: one shared Monte Carlo draw feeds both the
+    # per-team projected record and the conference-race odds, so they
+    # can't quietly disagree about how a shared game turned out.
+    # Seasons with nothing left to play (remaining == []) still work --
+    # every team just projects to its final record with 0 games left.
+    remaining = load_remaining_schedule(season)
+    sim = simulate_remaining(remaining, predictor)
+    projections = project_all([team for team, _ in ranked], records, sim)
+    conference_races = project_conference_races(conference_of, games, sim)
 
     rankings = []
     for rank, (team, rating) in enumerate(ranked, 1):
         wins, losses = records.get(team, (0, 0))
         resume = resumes.get(team)
+        projection = projections.get(team)
         rankings.append({
             "rank": rank,
             "team": team,
             "rating": rating,
             "wins": wins,
             "losses": losses,
-            "conference": _team_conference(games, team),
+            "conference": conference_of.get(team, ""),
             "sos": _strength_of_schedule(games, team, model),
             "resume_rank": resume_rank.get(team),
             "resume_score": resume.score if resume else None,
@@ -151,6 +169,7 @@ def get_season(season: int) -> SeasonModel:
             "defense": offdef_model.defense_rating(team),
             "offense_rank": off_rank.get(team),
             "defense_rank": def_rank.get(team),
+            "projection": projection,
         })
 
     return SeasonModel(
@@ -161,6 +180,7 @@ def get_season(season: int) -> SeasonModel:
         n_games=len(games),
         max_week=max(g.week for g in games),
         has_postseason=any(g.season_type == POSTSEASON for g in games),
+        conference_races=conference_races,
         uses_epa=epa_model is not None,
     )
 
@@ -196,13 +216,20 @@ def _compute_records(games) -> dict[str, tuple[int, int]]:
     return {team: (w, l) for team, (w, l) in records.items()}
 
 
-def _team_conference(games, team: str) -> str:
+def _conference_map(games) -> dict[str, str]:
+    """team -> conference, built in one pass over the season's games.
+
+    Replaces a team-by-team scan (one full pass over every game, per
+    team) that got expensive once conference-race odds needed the same
+    mapping for every FBS team at once.
+    """
+    conference_of: dict[str, str] = {}
     for game in games:
-        if game.home_team == team and game.home_conference:
-            return game.home_conference
-        if game.away_team == team and game.away_conference:
-            return game.away_conference
-    return ""
+        if game.home_conference:
+            conference_of.setdefault(game.home_team, game.home_conference)
+        if game.away_conference:
+            conference_of.setdefault(game.away_team, game.away_conference)
+    return conference_of
 
 
 def _strength_of_schedule(games, team: str, model) -> float:
@@ -300,6 +327,7 @@ def rankings_page(
         n_games=data.n_games,
         max_week=data.max_week,
         has_postseason=data.has_postseason,
+        conference_races=data.conference_races,
     ))
 
 

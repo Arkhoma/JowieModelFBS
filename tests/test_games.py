@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from cfbrank.games import (  # noqa: E402
     FIRST_SEASON,
     available_seasons,
+    load_remaining_schedule,
     load_season,
     team_divisions,
 )
@@ -131,3 +132,26 @@ def test_live_season_loads_partial():
     assert games, "2026 should have completed games by week 3"
     assert all(g.season == 2026 for g in games)
     assert len(games) < 1400, "2026 looks like a complete season already"
+
+
+def test_remaining_schedule_has_no_scores():
+    """Every row load_season drops for lacking a score should show up here
+    instead -- load_season and load_remaining_schedule must partition the
+    same file, not overlap or drop rows between them."""
+    remaining = load_remaining_schedule(2026)
+    assert remaining, "2026 should still have unplayed games on the schedule"
+    assert all(g.season == 2026 for g in remaining)
+
+
+def test_remaining_schedule_excludes_played_games():
+    played_ids = {(g.home_team, g.away_team, g.week) for g in load_season(2026)}
+    remaining = load_remaining_schedule(2026)
+    remaining_ids = {(g.home_team, g.away_team, g.week) for g in remaining}
+    assert not played_ids & remaining_ids
+
+
+def test_remaining_schedule_only_rated_divisions():
+    remaining = load_remaining_schedule(2026)
+    assert all(g.home_division in {"fbs", "fcs"} for g in remaining)
+    assert all(g.away_division in {"fbs", "fcs"} for g in remaining)
+

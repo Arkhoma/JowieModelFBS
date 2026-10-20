@@ -72,6 +72,7 @@ def build_rankings(env: Environment, out_dir: Path, seasons: list[int]) -> None:
                 rankings=rows, sort=sort_key, model=data.model,
                 n_games=data.n_games, max_week=data.max_week,
                 has_postseason=data.has_postseason,
+                conference_races=data.conference_races,
             ))
             _write(out_dir, _rank_url(season, sort_key), html)
 
