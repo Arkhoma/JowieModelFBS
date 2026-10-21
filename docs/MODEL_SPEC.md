@@ -914,3 +914,24 @@ games): margin lambda 3.5 / 5 / 7.5 / 10 -> gap +0.365 / **+0.346** /
 +0.363. The current 5 / 4 stays -- a better prior did not earn a
 stronger grip.
 
+
+---
+
+## Rest, QB changes, recency: measured 2026-10-21
+
+The last three untested leads. Same residual method as the home-field
+probe (`tools/probe_rest_and_qb.py`, leave-one-season-out, 5,299 games;
+marginal gain, + = better):
+
+| lead | gain | verdict |
+|---|---|---|
+| rest days / bye / short week | +0.003 +/-0.011 | noise |
+| QB share / new / hurt | -0.001..-0.002 | noise |
+| brand-new QB (<35% of season dropbacks) | +0.008 +/-0.015 | real in-sample (-1.13 pts), too rare |
+| recency half-life 10 / 16 wk | +0.004 / +0.007 (+/-0.02) | noise, halflife stays off |
+
+**Where this leaves accuracy.** Every independent-data idea since the
+CFBD priors has landed inside +/-0.02. The one lever that measured big
+is market information (the Vegas Script, -0.096). It is kept out of the
+rating on purpose so the model stays independent. Folding it in is the
+only known way to make the headline number sharper.
