@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Predict a Game | JowieModel FBS{% endblock %}
+{% from "_season_menu.html" import season_menu with context %}
+{% block title %}Predict a Game {{ season }} | JowieModel FBS{% endblock %}
 
 {% macro team_picker(id, label, default) %}
 <div data-combobox class="relative">
@@ -33,8 +34,13 @@
 
 {% block content %}
 
-<h2 class="page-title text-3xl sm:text-4xl mb-1">Predict a Game</h2>
-<p class="text-sm text-muted mb-6">Any two FBS teams. Type to search or open the list.</p>
+<div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+  <div>
+    <h2 class="page-title text-3xl sm:text-4xl mb-1">Predict a Game</h2>
+    <p class="text-sm text-muted">Any two FBS teams, rated as of {{ season }}. Type to search or open the list.</p>
+  </div>
+  {% call(s) season_menu() %}{{ predict_url(s) }}{% endcall %}
+</div>
 
 {% if static_build %}
 <form id="predict-form" class="retro-card p-5 mb-8">

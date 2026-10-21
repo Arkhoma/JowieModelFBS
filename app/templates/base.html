@@ -47,11 +47,12 @@
 
       <nav aria-label="Main" class="w-full sm:w-auto">
         <ul class="flex gap-1">
-          {# (key, href, full label, short label for phones) #}
+          {# (key, href, full label, short label for phones). Tabs keep the
+             season you're browsing; the logo above always goes to latest. #}
           {% set tabs = [
-            ('rankings', nav.home, 'Rankings', 'Rankings'),
-            ('predict', nav.predict, 'Predict a Game', 'Predict'),
-            ('playoff', nav.playoff, 'Playoff', 'Playoff'),
+            ('rankings', rank_url(season, 'predictive'), 'Rankings', 'Rankings'),
+            ('predict', predict_url(season), 'Predict a Game', 'Predict'),
+            ('playoff', playoff_url(season), 'Playoff', 'Playoff'),
             ('about', nav.about, 'How It Works', 'About')
           ] %}
           {% for key, href, label, short in tabs %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_season_menu.html" import season_menu with context %}
 {% block title %}Playoff Projection {{ season }} | JowieModel FBS{% endblock %}
 
 {% block content %}
@@ -10,7 +11,16 @@
       12-team field, seeded by Resume rank. Round odds from 2,000 simulated brackets.
     </p>
   </div>
+  {% call(s) season_menu() %}{{ playoff_url(s) }}{% endcall %}
 </div>
+
+{% if season_complete %}
+<p class="retro-card p-3 mb-6 text-sm">
+  <strong>Season complete.</strong> This is the field and odds the model gives
+  today's 12-team format using {{ season }}'s final ratings &mdash; a what-if,
+  not what actually happened.
+</p>
+{% endif %}
 
 {% if not field %}
 <p class="text-sm text-muted">Not enough ranked conferences yet for a 12-team projection.</p>

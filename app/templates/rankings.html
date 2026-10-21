@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_season_menu.html" import season_menu with context %}
 {% block title %}Rankings {{ season }} | JowieModel FBS{% endblock %}
 
 {% block content %}
@@ -11,17 +12,7 @@
     </p>
   </div>
 
-  <details class="menu">
-    <summary class="retro-btn retro-btn-ghost px-3 py-1.5 text-sm">
-      <span class="sr-only">Season:</span>{{ season }}
-    </summary>
-    <nav class="menu-list retro-card" aria-label="Choose season">
-      {% for s in seasons|reverse %}
-      <a href="{{ rank_url(s, sort) }}" class="tabular-nums"
-         {% if s == season %}aria-current="true"{% endif %}>{{ s }}</a>
-      {% endfor %}
-    </nav>
-  </details>
+  {% call(s) season_menu() %}{{ rank_url(s, sort) }}{% endcall %}
 </div>
 
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -67,11 +58,7 @@
       <tr class="border-t border-ink/20 {% if shown and shown <= 12 %}top12{% endif %}">
         <td class="pin-rank text-right px-3 py-2 tabular-nums font-bold">{{ shown or "-" }}</td>
         <td class="pin-team px-3 py-2 font-bold">
-          {% if team_url %}
           <a href="{{ team_url(row.team, season) }}" class="hover:underline">{{ row.team }}</a>
-          {% else %}
-          {{ row.team }}
-          {% endif %}
           <span class="block text-xs font-normal text-muted">{{ row.conference }}</span>
         </td>
         <td class="text-right px-3 py-2 tabular-nums">{{ row.wins }}-{{ row.losses }}</td>
@@ -97,7 +84,7 @@
 
 <p class="text-xs text-muted mt-4">
   Ratings are points vs an average FBS team. Resume = wins above what a
-  top-25 team would expect. Off/Def don't affect the rank. Crimson bar = top 12.
+  top-25 team would expect. Off/Def don't affect the rank. Brick bar = top 12.
   Projected = most likely final record from 2,000 simulations of the
   remaining schedule, using this same model's own win probabilities.
   <a href="{{ nav.about }}" class="underline text-brick">How it works</a>

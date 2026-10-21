@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_season_menu.html" import season_menu with context %}
 {% block title %}{% if row %}{{ team }} {{ season }}{% else %}{{ team }}{% endif %} | JowieModel FBS{% endblock %}
 
 {% block content %}
@@ -10,8 +11,11 @@
     <p class="text-sm text-muted mt-1">{{ row.conference }} &middot; {{ season }}</p>
     {% endif %}
   </div>
-  <a href="{{ rank_url(season, 'predictive') }}"
-     class="retro-btn retro-btn-ghost px-3 py-1.5 text-sm">&larr; Back to rankings</a>
+  <div class="flex items-center gap-2">
+    {% call(s) season_menu(only=team_seasons) %}{{ team_url(team, s) }}{% endcall %}
+    <a href="{{ rank_url(season, 'predictive') }}"
+       class="retro-btn retro-btn-ghost px-3 py-1.5 text-sm">&larr; Back to rankings</a>
+  </div>
 </div>
 
 {% if not row %}

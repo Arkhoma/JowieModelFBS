@@ -5,19 +5,19 @@ the one page with real backend logic -- Predict a Game -- ships its
 math as JSON (cfbrank.static_export.predictor_payload) so
 app/static/predict.js can compute it in the browser instead.
 
-This calls app.main's own context builders (_base_context,
-_predict_teams, get_season) rather than re-implementing them, so the
-static export can only drift from the live app if someone edits one
-side and not the other -- and the identity tests in
-tests/test_static_export.py catch the math half of that.
+Page content comes from app.pages, the same context builders the live
+app uses, so the two sites can only differ in URL scheme (STATIC_URLS
+below vs app.pages.LIVE_URLS). tests/test_static_export.py pins the
+predictor math; tests/test_pages.py pins the URLs.
 
 Usage:
     python tools/build_static_site.py [--out _site] [--season 2026]
 
-Without --season, every available season gets a rankings page (that's
-what the live site's season switcher expects to link to); Predict,
-About, every team page, and the Playoff page stay pinned to the latest
-season, same as the live defaults.
+Every available season gets every season-specific page: rankings (all
+sorts), each FBS team, Predict and Playoff. The latest season keeps the
+plain filenames (predict.html, team-ohio-state.html) so existing links
+never break; older seasons add the year (predict-2024.html,
+team-ohio-state-2024.html). About is season-independent: one copy.
 """
 
 from __future__ import annotations
@@ -26,15 +26,17 @@ import argparse
 import re
 import shutil
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from app.main import (  # noqa: E402
-    BENCHMARK_PATH, SORTS, _base_context, _first_round_matchups,
-    _predict_teams, _team_game_log, get_season,
+from app.main import BENCHMARK_PATH, get_season  # noqa: E402
+from app.pages import (  # noqa: E402
+    SORTS, SiteUrls, base_context, playoff_context, predict_context,
+    rankings_context, team_context,
 )
 from cfbrank.games import available_seasons  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
@@ -44,25 +46,30 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape  # noqa: E40
 TEMPLATES_DIR = ROOT / "app" / "templates"
 STATIC_SRC = ROOT / "app" / "static"
 
-# Every page lives flat in the output directory, so relative names with
-# no subfolders are enough -- see the "index.html" alias below.
-NAV = {"home": "index.html", "predict": "predict.html",
-       "about": "about.html", "static": "static", "playoff": "playoff.html"}
+
+@lru_cache(maxsize=None)
+def _latest() -> int:
+    return max(available_seasons())
 
 
-def _rank_url(season: int, sort: str) -> str:
-    return f"rankings-{season}-{sort}.html"
+def _suffix(season: int) -> str:
+    """'' for the latest season (stable URLs), '-2024' for older ones."""
+    return "" if season == _latest() else f"-{season}"
 
 
 def _team_slug(team: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", team.lower()).strip("-")
 
 
-def _team_url(team: str, season: int) -> str:
-    """Team pages are only built for the latest season (build_team_pages),
-    so `season` is accepted but ignored here -- the live app's `_team_url`
-    uses it because every season there is servable on demand."""
-    return f"team-{_team_slug(team)}.html"
+# Every page lives flat in the output directory, so relative names with
+# no subfolders are enough -- see the "index.html" alias in build().
+STATIC_URLS = SiteUrls(
+    nav={"home": "index.html", "about": "about.html", "static": "static"},
+    rank=lambda season, sort: f"rankings-{season}-{sort}.html",
+    team=lambda team, season: f"team-{_team_slug(team)}{_suffix(season)}.html",
+    predict=lambda season: f"predict{_suffix(season)}.html",
+    playoff=lambda season: f"playoff{_suffix(season)}.html",
+)
 
 
 def _env() -> Environment:
@@ -72,100 +79,49 @@ def _env() -> Environment:
     )
 
 
-def _write(out_dir: Path, name: str, html: str) -> None:
-    (out_dir / name).write_text(html, encoding="utf-8")
+def _render(env: Environment, out_dir: Path, filename: str, template: str,
+            active_tab: str, season: int, **extra) -> None:
+    html = env.get_template(template).render(
+        base_context(active_tab, season, urls=STATIC_URLS, **extra))
+    (out_dir / filename).write_text(html, encoding="utf-8")
 
 
-def build_rankings(
-    env: Environment, out_dir: Path, seasons: list[int], latest: int,
-) -> None:
-    for season in seasons:
-        data = get_season(season)
-        # Team pages only exist for the latest season (build_team_pages);
-        # an older season's table keeps team names as plain text rather
-        # than link to a page that reflects the wrong season's numbers.
-        team_url = _team_url if season == latest else None
-        for sort_key, key_fn in SORTS.items():
-            rows = sorted(data.rankings, key=key_fn)
-            html = env.get_template("rankings.html").render(_base_context(
-                "rankings", season, nav=NAV, rank_url=_rank_url,
-                team_url=team_url,
-                rankings=rows, sort=sort_key, model=data.model,
-                n_games=data.n_games, max_week=data.max_week,
-                has_postseason=data.has_postseason,
-                conference_races=data.conference_races,
-            ))
-            _write(out_dir, _rank_url(season, sort_key), html)
-
-
-def build_about(env: Environment, out_dir: Path, season: int) -> None:
+def build_season(env: Environment, out_dir: Path, season: int) -> None:
+    """Every season-specific page for one season."""
     data = get_season(season)
-    html = env.get_template("about.html").render(_base_context(
-        "about", season, nav=NAV,
-        model=data.model, card=load_scorecard(BENCHMARK_PATH),
-    ))
-    _write(out_dir, "about.html", html)
-
-
-def build_predict(env: Environment, out_dir: Path, season: int) -> None:
-    """Latest season only -- ratings are season-specific and the picker
-    already defaults here on the live site. Multi-season predict would
-    mean one payload per season; not worth it until someone asks."""
-    data = get_season(season)
-    teams = _predict_teams(data)
-    payload = predictor_payload(data.predictor, [t["name"] for t in teams])
-    html = env.get_template("predict.html").render(_base_context(
-        "predict", season, nav=NAV, static_build=True,
-        teams=teams, prediction=None, model_json=payload,
-    ))
-    _write(out_dir, "predict.html", html)
-
-
-def build_team_pages(env: Environment, out_dir: Path, season: int) -> None:
-    """One flat page per FBS team, latest season only -- same reasoning as
-    build_predict: ratings are season-specific, and _team_url above only
-    has an opinion about the latest season's filenames."""
-    data = get_season(season)
+    urls = STATIC_URLS
+    for sort in SORTS:
+        _render(env, out_dir, urls.rank(season, sort), "rankings.html",
+                "rankings", season, **rankings_context(data, sort))
     for row in data.rankings:
         team = row["team"]
-        game_log = _team_game_log(team, data.games, data.remaining, data.predictor)
-        html = env.get_template("team.html").render(_base_context(
-            "rankings", season, nav=NAV, rank_url=_rank_url,
-            team=team, row=row, game_log=game_log,
-        ))
-        _write(out_dir, _team_url(team, season), html)
-
-
-def build_playoff(env: Environment, out_dir: Path, season: int) -> None:
-    """Latest season only, same convention as Predict/About/Team pages."""
-    data = get_season(season)
-    first_round = (_first_round_matchups(data.playoff_field, data.predictor)
-                  if data.playoff_field else [])
-    html = env.get_template("playoff.html").render(_base_context(
-        "playoff", season, nav=NAV,
-        field=data.playoff_field, odds=data.playoff_odds,
-        first_round=first_round,
-    ))
-    _write(out_dir, "playoff.html", html)
+        _render(env, out_dir, urls.team(team, season), "team.html",
+                "rankings", season, **team_context(data, team))
+    context = predict_context(data)
+    payload = predictor_payload(data.predictor,
+                                [t["name"] for t in context["teams"]])
+    _render(env, out_dir, urls.predict(season), "predict.html", "predict",
+            season, static_build=True, model_json=payload, **context)
+    _render(env, out_dir, urls.playoff(season), "playoff.html", "playoff",
+            season, **playoff_context(data))
 
 
 def build(out_dir: Path, seasons: list[int] | None = None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     env = _env()
-    all_seasons = available_seasons()
-    seasons = seasons or all_seasons
-    latest = max(all_seasons)
+    seasons = seasons or available_seasons()
+    latest = _latest()
 
-    build_rankings(env, out_dir, seasons, latest)
-    build_about(env, out_dir, latest)
-    build_predict(env, out_dir, latest)
-    build_team_pages(env, out_dir, latest)
-    build_playoff(env, out_dir, latest)
+    for season in seasons:
+        build_season(env, out_dir, season)
+    _render(env, out_dir, "about.html", "about.html", "about", latest,
+            model=get_season(latest).model,
+            card=load_scorecard(BENCHMARK_PATH))
 
     # Root landing page = latest season, predictive sort. Only makes
     # sense if that page actually got built.
     if latest in seasons:
-        shutil.copy(out_dir / _rank_url(latest, "predictive"),
+        shutil.copy(out_dir / STATIC_URLS.rank(latest, "predictive"),
                     out_dir / "index.html")
 
     dest_static = out_dir / "static"

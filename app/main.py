@@ -10,7 +10,6 @@ import sys
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import quote
 
 import numpy as np
 from fastapi import FastAPI, Form, Request
@@ -30,18 +29,23 @@ from cfbrank.games import (  # noqa: E402
 from cfbrank.lines import home_lines  # noqa: E402
 from cfbrank.offdef_prior import fit_points_model  # noqa: E402
 from cfbrank.explain import explain_rankings  # noqa: E402
-from cfbrank.playoff import FIRST_ROUND, select_field, simulate_bracket  # noqa: E402
+from cfbrank.playoff import select_field, simulate_bracket  # noqa: E402
 from cfbrank.predict import Predictor  # noqa: E402
 from cfbrank.prior import home_field_prior  # noqa: E402
 from cfbrank.prior_model import build_roster_prior_or_empty  # noqa: E402
 from cfbrank.projection import (  # noqa: E402
-    TeamProjection, project_all, project_conference_races, simulate_remaining,
+    project_all, project_conference_races, simulate_remaining,
 )
 from cfbrank.resume import build_resumes, rank_resumes  # noqa: E402
 from cfbrank.ridge import fit  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
 from cfbrank.vegas_script import (  # noqa: E402
     VegasScript, alerts_active, fit_market_ratings,
+)
+
+from app.pages import (  # noqa: E402
+    SORTS, base_context, playoff_context, predict_context, rankings_context,
+    team_context,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -278,83 +282,6 @@ def _conference_map(games) -> dict[str, str]:
     return conference_of
 
 
-def _team_game_log(
-    team: str, games: list, remaining: list, predictor: Predictor,
-) -> list[dict]:
-    """One team's full schedule: played results plus upcoming predictions,
-    in week order.
-
-    The "model said" column for a PLAYED game is this exact predictor
-    evaluated on that matchup -- not a separate backtest metric -- so a
-    reader comparing it against the actual score is comparing the model
-    to itself honestly, calibration warts included.
-    """
-    entries = []
-    for g in games:
-        if team not in (g.home_team, g.away_team):
-            continue
-        is_home = g.home_team == team
-        opponent = g.away_team if is_home else g.home_team
-        team_points = g.home_points if is_home else g.away_points
-        opp_points = g.away_points if is_home else g.home_points
-        won = team_points > opp_points
-        prediction = predictor.predict(g.home_team, g.away_team, g.neutral_site)
-        win_probability = (prediction.home_win_probability if is_home
-                           else 1 - prediction.home_win_probability)
-        entries.append({
-            "week": g.week,
-            "opponent": opponent,
-            "location": "neutral" if g.neutral_site else ("vs" if is_home else "at"),
-            "played": True,
-            "result": f"{'W' if won else 'L'} {team_points}-{opp_points}",
-            "win_probability": win_probability,
-            "upset": won != (win_probability >= 0.5),
-        })
-
-    ratings = predictor.model.ratings
-    for g in remaining:
-        if team not in (g.home_team, g.away_team):
-            continue
-        if g.home_team not in ratings or g.away_team not in ratings:
-            continue  # same "no opinion, no guess" rule as simulate_remaining
-        is_home = g.home_team == team
-        opponent = g.away_team if is_home else g.home_team
-        prediction = predictor.predict(g.home_team, g.away_team, g.neutral_site)
-        win_probability = (prediction.home_win_probability if is_home
-                           else 1 - prediction.home_win_probability)
-        entries.append({
-            "week": g.week,
-            "opponent": opponent,
-            "location": "neutral" if g.neutral_site else ("vs" if is_home else "at"),
-            "played": False,
-            "result": None,
-            "win_probability": win_probability,
-            "upset": None,
-        })
-
-    entries.sort(key=lambda e: e["week"])
-    return entries
-
-
-def _first_round_matchups(field: list, predictor: Predictor) -> list[dict]:
-    """The Round of 12's four concrete games.
-
-    Seeding is already locked in from the current standings, so these are
-    real matchups with a real spread -- unlike the deeper rounds, which
-    depend on who wins here and only exist as simulated odds.
-    """
-    by_seed = {t.seed: t for t in field}
-    matchups = []
-    for hi, lo in FIRST_ROUND:
-        home, away = by_seed[hi], by_seed[lo]
-        prediction = predictor.predict(home.team, away.team, neutral_site=False)
-        matchups.append({
-            "home": home, "away": away,
-            "home_win_probability": prediction.home_win_probability,
-        })
-    return matchups
-
-
 def _strength_of_schedule(games, team: str, model) -> float:
     """Average rating of every opponent faced."""
     opponents = [
@@ -374,72 +301,6 @@ def _latest_season() -> int:
     return max(seasons)
 
 
-def _rank_key(column: str):
-    """Sort by a rank column; unranked teams go last instead of crashing."""
-    return lambda row: (row[column] is None, row[column] or 0)
-
-
-SORTS = {"predictive": _rank_key("rank"), "resume": _rank_key("resume_rank"),
-         "offense": _rank_key("offense_rank"),
-         "defense": _rank_key("defense_rank")}
-
-# Absolute paths for the live app. tools/build_static_site.py renders the
-# same templates with a different `nav` dict (relative filenames) so a
-# GitHub Pages export needs no server -- one set of templates either way.
-NAV = {"home": "/", "predict": "/predict", "about": "/about", "static": "/static",
-       "playoff": "/playoff"}
-
-
-def _rank_url(season: int, sort: str) -> str:
-    return f"/?season={season}&sort={sort}"
-
-
-def _team_url(team: str, season: int) -> str:
-    return f"/team/{quote(team)}?season={season}"
-
-
-# Sentinel so _base_context can tell "team_url wasn't passed, default to
-# the live route" apart from "team_url was explicitly passed as None,
-# meaning no link at all." build_static_site.py relies on the second
-# case for seasons that don't get a team page (every season but the
-# latest) -- a plain `team_url=None` falling back to the live site's
-# /team/ path there would silently ship a dead link into the static
-# export.
-_UNSET = object()
-
-
-def _base_context(
-    active_tab: str, season: int,
-    nav: dict | None = None, rank_url=None, team_url=_UNSET, **extra,
-) -> dict:
-    """Shared page context. `nav`/`rank_url`/`team_url` default to the live
-    routes' absolute paths; tools/build_static_site.py overrides them with
-    relative filenames so the exact same templates render a standalone
-    static export."""
-    return {
-        "active_tab": active_tab,
-        "season": season,
-        "seasons": available_seasons(),
-        "nav": nav or NAV,
-        "rank_url": rank_url or _rank_url,
-        "team_url": _team_url if team_url is _UNSET else team_url,
-        **extra,
-    }
-
-
-def _predict_teams(data: SeasonModel) -> list[dict]:
-    """Team picker entries for the predict page: name, rank, conference,
-    record. Shared with tools/build_static_site.py so the offline export
-    can never quietly list a different set of teams than the live page."""
-    rankings = {r["team"]: r for r in data.rankings}
-    return [
-        {"name": t, "rank": rankings[t]["rank"],
-         "conference": rankings[t]["conference"],
-         "record": f"{rankings[t]['wins']}-{rankings[t]['losses']}"}
-        for t in sorted(data.model.fbs_ratings()) if t in rankings
-    ]
-
-
 @app.get("/", response_class=HTMLResponse)
 def rankings_page(
     request: Request,
@@ -453,41 +314,21 @@ def rankings_page(
     is the point.
     """
     season = season or _latest_season()
-    data = get_season(season)
-
     sort = sort if sort in SORTS else "predictive"
-    rows = sorted(data.rankings, key=SORTS[sort])
-
-    return TEMPLATES.TemplateResponse(request, "rankings.html", _base_context(
-        "rankings", season,
-        rankings=rows,
-        sort=sort,
-        model=data.model,
-        n_games=data.n_games,
-        max_week=data.max_week,
-        has_postseason=data.has_postseason,
-        conference_races=data.conference_races,
-    ))
+    return TEMPLATES.TemplateResponse(request, "rankings.html", base_context(
+        "rankings", season, **rankings_context(get_season(season), sort)))
 
 
 @app.get("/team/{team_name}", response_class=HTMLResponse)
 def team_page(request: Request, team_name: str, season: int | None = None):
-    """One team's card: record, projection, and full game log.
+    """One team's card: record, projection, why it ranks there, game log.
 
     `team_name` comes in URL-decoded by FastAPI already, so this matches
     directly against the rankings dict built from the same team names.
     """
     season = season or _latest_season()
-    data = get_season(season)
-    row = next((r for r in data.rankings if r["team"] == team_name), None)
-    game_log = (_team_game_log(team_name, data.games, data.remaining, data.predictor)
-                if row else [])
-    return TEMPLATES.TemplateResponse(request, "team.html", _base_context(
-        "rankings", season,
-        team=team_name,
-        row=row,
-        game_log=game_log,
-    ))
+    return TEMPLATES.TemplateResponse(request, "team.html", base_context(
+        "rankings", season, **team_context(get_season(season), team_name)))
 
 
 @app.get("/playoff", response_class=HTMLResponse)
@@ -499,26 +340,15 @@ def playoff_page(request: Request, season: int | None = None):
     instead of a broken bracket.
     """
     season = season or _latest_season()
-    data = get_season(season)
-    first_round = (_first_round_matchups(data.playoff_field, data.predictor)
-                  if data.playoff_field else [])
-    return TEMPLATES.TemplateResponse(request, "playoff.html", _base_context(
-        "playoff", season,
-        field=data.playoff_field,
-        odds=data.playoff_odds,
-        first_round=first_round,
-    ))
+    return TEMPLATES.TemplateResponse(request, "playoff.html", base_context(
+        "playoff", season, **playoff_context(get_season(season))))
 
 
 @app.get("/predict", response_class=HTMLResponse)
 def predict_page(request: Request, season: int | None = None):
     season = season or _latest_season()
-    data = get_season(season)
-    return TEMPLATES.TemplateResponse(request, "predict.html", _base_context(
-        "predict", season,
-        teams=_predict_teams(data),
-        prediction=None,
-    ))
+    return TEMPLATES.TemplateResponse(request, "predict.html", base_context(
+        "predict", season, **predict_context(get_season(season))))
 
 
 @app.post("/predict", response_class=HTMLResponse)
@@ -566,7 +396,7 @@ def about_page(request: Request):
     served once the ensemble shipped.
     """
     season = _latest_season()
-    return TEMPLATES.TemplateResponse(request, "about.html", _base_context(
+    return TEMPLATES.TemplateResponse(request, "about.html", base_context(
         "about", season,
         model=get_season(season).model,
         card=load_scorecard(BENCHMARK_PATH),

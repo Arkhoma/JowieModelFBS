@@ -27,7 +27,7 @@ def predictor_payload(predictor: Predictor, teams: list[str]) -> dict:
     """Everything predict.js needs to predict games among `teams`.
 
     `teams` should already be filtered to teams the app is willing to
-    offer in the picker (see app.main._predict_teams) -- this function
+    offer in the picker (see app.pages.predict_teams) -- this function
     just skips anyone the model itself doesn't know, the same guard
     Predictor.predict() relies on implicitly via the caller.
     """

@@ -73,6 +73,11 @@ jobs:
       - name: Build static site
         run: python tools/build_static_site.py --out _site
 
+      # Every season has every page now; a dead link fails here instead
+      # of shipping.
+      - name: Check links
+        run: python tools/check_static_links.py _site
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

@@ -18,6 +18,7 @@ import gzip
 import json
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 
 # games.py lives at <root>/src/cfbrank/, so the project root is three up.
@@ -381,3 +382,17 @@ def team_divisions(games: list[Game]) -> dict[str, str]:
         divisions[game.home_team] = game.home_division
         divisions[game.away_team] = game.away_division
     return divisions
+
+
+@lru_cache(maxsize=None)
+def fbs_teams(season: int) -> frozenset[str]:
+    """Every FBS team in one season, from the schedule alone -- no model
+    fit. Same set the rankings table shows (tests/test_app.py checks)."""
+    return frozenset(team for team, division
+                     in team_divisions(load_season(season)).items()
+                     if division == "fbs")
+
+
+def fbs_seasons(team: str) -> list[int]:
+    """Seasons in which `team` played FBS, oldest first."""
+    return [s for s in available_seasons() if team in fbs_teams(s)]

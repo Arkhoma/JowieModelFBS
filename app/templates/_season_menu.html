@@ -1,0 +1,23 @@
+{#- The season dropdown, shared by every season-specific page.
+
+    Each page says where a season goes with a call block, so this file
+    never needs to know any page's URL scheme (live or static):
+
+      {% from "_season_menu.html" import season_menu with context %}
+      {% call(s) season_menu() %}{{ rank_url(s, sort) }}{% endcall %}
+
+    `only` limits the list (a team page offers just its FBS seasons).
+-#}
+{% macro season_menu(only=None) %}
+<details class="menu">
+  <summary class="retro-btn retro-btn-ghost px-3 py-1.5 text-sm">
+    <span class="sr-only">Season:</span>{{ season }}
+  </summary>
+  <nav class="menu-list retro-card" aria-label="Choose season">
+    {% for s in (only or seasons)|reverse %}
+    <a href="{{ caller(s)|trim }}" class="tabular-nums"
+       {% if s == season %}aria-current="true"{% endif %}>{{ s }}</a>
+    {% endfor %}
+  </nav>
+</details>
+{% endmacro %}
