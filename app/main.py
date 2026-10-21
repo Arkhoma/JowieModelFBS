@@ -29,6 +29,7 @@ from cfbrank.games import (  # noqa: E402
 )
 from cfbrank.lines import home_lines  # noqa: E402
 from cfbrank.offdef_prior import fit_points_model  # noqa: E402
+from cfbrank.explain import explain_rankings  # noqa: E402
 from cfbrank.playoff import FIRST_ROUND, select_field, simulate_bracket  # noqa: E402
 from cfbrank.predict import Predictor  # noqa: E402
 from cfbrank.prior import home_field_prior  # noqa: E402
@@ -207,6 +208,11 @@ def get_season(season: int) -> SeasonModel:
             "defense_rank": def_rank.get(team),
             "projection": projection,
         })
+
+    # "Why #N" lines for the team page, from numbers already fitted above.
+    why = explain_rankings(rankings, model, prior, games, predictor)
+    for row in rankings:
+        row["why"] = why[row["team"]]
 
     return SeasonModel(
         season=season,

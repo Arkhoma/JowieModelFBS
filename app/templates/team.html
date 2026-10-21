@@ -44,6 +44,15 @@
   </div>
 </div>
 
+{% if row.why %}
+<section aria-labelledby="why" class="retro-card p-4 mb-8">
+  <h3 id="why" class="section-title text-xl mb-2">Why #{{ row.rank }}</h3>
+  <ul class="list-disc pl-5 space-y-1 text-sm">
+    {% for line in row.why %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <div class="overflow-x-auto retro-card">
   <table class="stat-table w-full text-sm">
     <caption class="sr-only">{{ team }}'s {{ season }} schedule</caption>
