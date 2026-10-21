@@ -41,7 +41,7 @@
         .sort((a, b) => ((a.score ?? 99) - (b.score ?? 99)) || (a.rank - b.rank));
       ranked.forEach(({ o, score }) => { o.hidden = score === null; list.appendChild(o); });
       const n = visible().length;
-      status.textContent = n ? `${n} teams` : "No matching teams";
+      status.textContent = n ? `${n} team${n === 1 ? "" : "s"}` : "No matching teams";
       open(true);
       setActive(n ? 0 : -1);
     }

@@ -48,7 +48,7 @@
       </div>
 
       <nav aria-label="Main" class="order-3 w-full lg:order-2 lg:w-auto nav-strip">
-        <ul class="flex gap-1">
+        <ul class="flex sm:gap-1">
           {# (key, href, full label, short label for phones). Tabs keep the
              season you're browsing; the logo always goes to latest. #}
           {% set tabs = [
@@ -61,7 +61,7 @@
           {% for key, href, label, short in tabs %}
           <li class="flex-1 lg:flex-none">
             <a href="{{ href }}"
-               class="nav-tab block text-center whitespace-nowrap px-2 sm:px-4 py-3 lg:py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-wide"
+               class="nav-tab flex items-center justify-center min-h-[44px] text-center whitespace-nowrap px-1 sm:px-4 py-3 lg:py-2.5 text-xs sm:text-sm font-semibold uppercase sm:tracking-wide"
                {% if active_tab == key %}aria-current="page"{% endif %}>
               <span class="sm:hidden">{{ short }}</span><span class="hidden sm:inline">{{ label }}</span>
             </a>

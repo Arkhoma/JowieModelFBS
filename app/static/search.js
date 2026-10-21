@@ -116,7 +116,7 @@ function linkTeams(root) {
       </li>`).join("");
     const typed = input.value.trim() !== "";
     status.textContent = !typed ? "" : results.length
-      ? `${results.length} teams` : "No matching teams";
+      ? `${results.length} team${results.length === 1 ? "" : "s"}` : "No matching teams";
     open(typed && results.length > 0);
     setActive(results.length ? 0 : -1);
   }
