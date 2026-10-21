@@ -17,7 +17,8 @@ Every available season gets every season-specific page: rankings (all
 sorts), each FBS team, Predict and Playoff. The latest season keeps the
 plain filenames (predict.html, team-ohio-state.html) so existing links
 never break; older seasons add the year (predict-2024.html,
-team-ohio-state-2024.html). About is season-independent: one copy.
+team-ohio-state-2024.html). About and the Time Machine (every season on
+one page) are season-independent: one copy each.
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from app.main import BENCHMARK_PATH, get_season  # noqa: E402
 from app.pages import (  # noqa: E402
     SORTS, SiteUrls, base_context, playoff_context, predict_context,
-    rankings_context, team_context,
+    rankings_context, team_context, time_machine_context,
 )
 from cfbrank.games import available_seasons  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
@@ -64,7 +65,8 @@ def _team_slug(team: str) -> str:
 # Every page lives flat in the output directory, so relative names with
 # no subfolders are enough -- see the "index.html" alias in build().
 STATIC_URLS = SiteUrls(
-    nav={"home": "index.html", "about": "about.html", "static": "static"},
+    nav={"home": "index.html", "about": "about.html", "static": "static",
+         "time_machine": "time-machine.html"},
     rank=lambda season, sort: f"rankings-{season}-{sort}.html",
     team=lambda team, season: f"team-{_team_slug(team)}{_suffix(season)}.html",
     predict=lambda season: f"predict{_suffix(season)}.html",
@@ -117,6 +119,8 @@ def build(out_dir: Path, seasons: list[int] | None = None) -> None:
     _render(env, out_dir, "about.html", "about.html", "about", latest,
             model=get_season(latest).model,
             card=load_scorecard(BENCHMARK_PATH))
+    _render(env, out_dir, "time-machine.html", "time_machine.html", "predict",
+            latest, **time_machine_context(get_season))
 
     # Root landing page = latest season, predictive sort. Only makes
     # sense if that page actually got built.

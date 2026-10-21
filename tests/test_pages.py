@@ -18,11 +18,13 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from app.main import get_season  # noqa: E402
 from app.pages import (  # noqa: E402
-    LIVE_URLS, SiteUrls, base_context, playoff_context, team_context,
+    LIVE_URLS, SiteUrls, base_context, playoff_context, predict_context,
+    team_context,
 )
 from build_static_site import STATIC_URLS, _env, _latest  # noqa: E402
 from check_static_links import broken_links  # noqa: E402
 from cfbrank.games import available_seasons, fbs_seasons, fbs_teams  # noqa: E402
+from cfbrank.time_machine import season_snapshot  # noqa: E402
 
 SEASON = 2026
 
@@ -92,6 +94,24 @@ def test_nav_tabs_keep_the_season_being_viewed(data):
     assert f'href="{STATIC_URLS.rank(SEASON, "predictive")}"' in html
     assert f'href="{STATIC_URLS.predict(SEASON)}"' in html
     assert len(_menu_links(html)) == len(available_seasons())
+
+
+def test_predict_page_links_to_the_time_machine(data):
+    html = _render("predict.html", "predict", data, **predict_context(data))
+    assert 'href="time-machine.html"' in html
+
+
+def test_time_machine_page_renders_pickers_and_data(data):
+    snap = season_snapshot(data.rankings, data.predictor, str(SEASON))
+    teams = [{"name": r["team"], "conference": r["conference"]}
+             for r in data.rankings]
+    html = _render("time_machine.html", "predict", data,
+                   snapshots={str(SEASON): snap}, teams=teams)
+    assert 'id="a_team"' in html and 'id="b_season"' in html
+    assert html.count('role="option"') == 2 * len(teams)
+    assert '<option value="2019" selected>' in html       # 2019 LSU default
+    assert 'id="snapshots"' in html and "time_machine.js" in html
+    assert "Vegas Script" not in html
 
 
 def test_link_checker_catches_a_dead_link(tmp_path):

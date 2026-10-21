@@ -1,38 +1,11 @@
 {% extends "base.html" %}
 {% from "_season_menu.html" import season_menu with context %}
+{% from "_team_picker.html" import team_picker %}
 {% block title %}Predict a Game {{ season }} | JowieModel FBS{% endblock %}
 
-{% macro team_picker(id, label, default) %}
-<div data-combobox class="relative">
-  <label for="{{ id }}" class="block eyebrow mb-1.5">{{ label }}</label>
-  <div class="flex">
-    <input id="{{ id }}" name="{{ id }}" type="text" required autocomplete="off"
-           role="combobox" aria-autocomplete="list" aria-expanded="false"
-           aria-controls="{{ id }}-list" value="{{ default }}"
-           placeholder="Search teams..."
-           class="flex-1 min-w-0 bg-card border-ink border-r-0 px-3 py-2 text-base
-                  border-2 focus:outline-none">
-    <button type="button" tabindex="-1" aria-label="Show all teams"
-            aria-controls="{{ id }}-list" aria-expanded="false"
-            class="retro-btn px-4 min-h-[44px]">&#9660;</button>
-  </div>
-  <ul id="{{ id }}-list" role="listbox" aria-label="{{ label }}" hidden
-      class="combo-list absolute z-20 left-0 right-0 mt-1 retro-card">
-    {% for t in teams %}
-    <li id="{{ id }}-opt-{{ loop.index }}" role="option" aria-selected="false"
-        data-value="{{ t.name }}"
-        data-conference="{{ t.conference|lower }}"
-        class="px-3 py-2.5 cursor-pointer flex justify-between gap-3 hover:bg-paper">
-      <span><span class="text-muted tabular-nums">#{{ t.rank }}</span> {{ t.name }}</span>
-      <span class="text-xs text-muted">{{ t.record }} &middot; {{ t.conference }}</span>
-    </li>
-    {% endfor %}
-  </ul>
-  <p role="status" class="sr-only"></p>
-</div>
-{% endmacro %}
-
 {% block content %}
+
+{% include "_predict_tabs.html" %}
 
 <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
   <div>
@@ -51,10 +24,10 @@
   <input type="hidden" name="season" value="{{ season }}">
 
   <div class="grid sm:grid-cols-[1fr_auto_1fr] gap-4 items-end">
-    {{ team_picker("away_team", "Away team", "Texas") }}
+    {{ team_picker("away_team", "Away team", "Texas", teams) }}
     <button type="button" id="swap-teams" class="retro-btn retro-btn-ghost px-3 py-2 mb-0.5 justify-self-center"
             aria-label="Swap home and away"><span class="sm:hidden">&#8645;</span><span class="hidden sm:inline">&#8646;</span></button>
-    {{ team_picker("home_team", "Home team", "Oklahoma") }}
+    {{ team_picker("home_team", "Home team", "Oklahoma", teams) }}
   </div>
 
   <div class="flex flex-wrap items-center gap-4 mt-5">

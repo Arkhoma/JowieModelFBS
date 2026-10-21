@@ -1,0 +1,31 @@
+{#- Searchable team picker (WAI-ARIA combobox; behaviour in combobox.js).
+    `teams`: dicts with name + conference, optionally rank + record. -#}
+{% macro team_picker(id, label, default, teams) %}
+<div data-combobox class="relative">
+  <label for="{{ id }}" class="block eyebrow mb-1.5">{{ label }}</label>
+  <div class="flex">
+    <input id="{{ id }}" name="{{ id }}" type="text" required autocomplete="off"
+           role="combobox" aria-autocomplete="list" aria-expanded="false"
+           aria-controls="{{ id }}-list" value="{{ default }}"
+           placeholder="Search teams..."
+           class="flex-1 min-w-0 bg-card border-ink border-r-0 px-3 py-2 text-base
+                  border-2 focus:outline-none">
+    <button type="button" tabindex="-1" aria-label="Show all teams"
+            aria-controls="{{ id }}-list" aria-expanded="false"
+            class="retro-btn px-4 min-h-[44px]">&#9660;</button>
+  </div>
+  <ul id="{{ id }}-list" role="listbox" aria-label="{{ label }}" hidden
+      class="combo-list absolute z-20 left-0 right-0 mt-1 retro-card">
+    {% for t in teams %}
+    <li id="{{ id }}-opt-{{ loop.index }}" role="option" aria-selected="false"
+        data-value="{{ t.name }}"
+        data-conference="{{ t.conference|lower }}"
+        class="px-3 py-2.5 cursor-pointer flex justify-between gap-3 hover:bg-paper">
+      <span>{% if t.rank %}<span class="text-muted tabular-nums">#{{ t.rank }}</span> {% endif %}{{ t.name }}</span>
+      <span class="text-xs text-muted">{% if t.record %}{{ t.record }} &middot; {% endif %}{{ t.conference }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p role="status" class="sr-only"></p>
+</div>
+{% endmacro %}

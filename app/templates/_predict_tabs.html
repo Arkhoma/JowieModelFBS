@@ -1,0 +1,8 @@
+{#- Switch between the two prediction tools. Wrap the include in
+    {% with predict_tab="time_machine" %} on the Time Machine page. -#}
+<nav class="segmented mb-6" aria-label="Prediction tool">
+  <a href="{{ predict_url(season) }}"
+     {% if predict_tab != "time_machine" %}aria-current="true"{% endif %}>This season</a>
+  <a href="{{ nav.time_machine }}"
+     {% if predict_tab == "time_machine" %}aria-current="true"{% endif %}>Time Machine</a>
+</nav>

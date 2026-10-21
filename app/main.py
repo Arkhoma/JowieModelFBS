@@ -45,7 +45,7 @@ from cfbrank.vegas_script import (  # noqa: E402
 
 from app.pages import (  # noqa: E402
     SORTS, base_context, playoff_context, predict_context, rankings_context,
-    team_context,
+    team_context, time_machine_context,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -349,6 +349,14 @@ def predict_page(request: Request, season: int | None = None):
     season = season or _latest_season()
     return TEMPLATES.TemplateResponse(request, "predict.html", base_context(
         "predict", season, **predict_context(get_season(season))))
+
+
+@app.get("/time-machine", response_class=HTMLResponse)
+def time_machine_page(request: Request):
+    """Any team from any season vs any other. Runs in the browser from
+    embedded per-season snapshots -- see cfbrank.time_machine."""
+    return TEMPLATES.TemplateResponse(request, "time_machine.html", base_context(
+        "predict", _latest_season(), **time_machine_context(get_season)))
 
 
 @app.post("/predict", response_class=HTMLResponse)

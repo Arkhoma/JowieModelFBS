@@ -16,6 +16,7 @@ from urllib.parse import quote
 
 from cfbrank.games import available_seasons, fbs_seasons
 from cfbrank.playoff import FIRST_ROUND
+from cfbrank.time_machine import season_snapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,7 +24,7 @@ class SiteUrls:
     """Where every page lives on one site. Templates see these as
     nav / rank_url / team_url / predict_url / playoff_url."""
 
-    nav: dict                              # home, about, static
+    nav: dict                              # home, about, static, time_machine
     rank: Callable[[int, str], str]        # (season, sort)
     team: Callable[[str, int], str]        # (team, season)
     predict: Callable[[int], str]          # (season)
@@ -31,7 +32,8 @@ class SiteUrls:
 
 
 LIVE_URLS = SiteUrls(
-    nav={"home": "/", "about": "/about", "static": "/static"},
+    nav={"home": "/", "about": "/about", "static": "/static",
+         "time_machine": "/time-machine"},
     rank=lambda season, sort: f"/?season={season}&sort={sort}",
     team=lambda team, season: f"/team/{quote(team)}?season={season}",
     predict=lambda season: f"/predict?season={season}",
@@ -92,6 +94,28 @@ def team_context(data, team: str) -> dict:
 
 def predict_context(data) -> dict:
     return {"teams": predict_teams(data), "prediction": None}
+
+
+def time_machine_context(get_season) -> dict:
+    """Every season's snapshot, for any-team-any-year matchups.
+
+    `get_season` is passed in (app.main's cached fitter) rather than
+    imported, so this module never imports app.main. Fits every season,
+    so the first load on a fresh local server takes a few minutes.
+    """
+    snapshots, conference = {}, {}
+    for season in available_seasons():
+        data = get_season(season)
+        label = (str(season) if not data.remaining
+                 else f"{season} (through week {data.max_week})")
+        snapshots[str(season)] = season_snapshot(data.rankings, data.predictor, label)
+        conference.update({r["team"]: r["conference"] for r in data.rankings})
+    return {
+        "snapshots": snapshots,
+        # Everyone who was ever FBS; latest conference wins.
+        "teams": [{"name": t, "conference": c}
+                  for t, c in sorted(conference.items())],
+    }
 
 
 def playoff_context(data) -> dict:

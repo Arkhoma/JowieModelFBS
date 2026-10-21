@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_team_picker.html" import team_picker %}
+{% block title %}Time Machine | JowieModel FBS{% endblock %}
+
+{% macro side(key, label, team, year) %}
+<fieldset class="grid grid-cols-[1fr_auto] gap-2 items-end">
+  <legend class="sr-only">{{ label }}</legend>
+  {{ team_picker(key ~ "_team", label, team, teams) }}
+  <div>
+    <label for="{{ key }}_season" class="block eyebrow mb-1.5">Season</label>
+    <select id="{{ key }}_season" name="{{ key }}_season"
+            class="bg-card border-2 border-ink px-2 py-2 min-h-[44px] tabular-nums">
+      {% for s in seasons|reverse %}
+      <option value="{{ s }}" {% if s == year %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</fieldset>
+{% endmacro %}
+
+{% block content %}
+
+{% with predict_tab="time_machine" %}{% include "_predict_tabs.html" %}{% endwith %}
+
+<h2 class="page-title text-3xl sm:text-4xl mb-1">Time Machine</h2>
+<p class="text-sm text-muted mb-6 max-w-3xl">
+  Any FBS team from any season against any other, on a neutral field.
+  Each team is rated against its own season, so this compares how dominant
+  each one was in its era. It assumes an average FBS team is equally good
+  every year. No Vegas line here: these games never happened.
+</p>
+
+<form id="time-machine-form" class="retro-card p-5 mb-8">
+  <div class="grid md:grid-cols-[1fr_auto_1fr] gap-4 items-end">
+    {{ side("a", "Team A", "LSU", 2019) }}
+    <div class="text-sm font-bold text-muted justify-self-center pb-3">VS</div>
+    {{ side("b", "Team B", "Michigan", 2024) }}
+  </div>
+  <div class="flex mt-5">
+    <button type="submit" class="retro-btn ml-auto px-6 py-2">Run it</button>
+  </div>
+</form>
+
+<div id="result" aria-live="polite"></div>
+
+<script type="application/json" id="snapshots">{{ snapshots | tojson }}</script>
+<script src="{{ nav.static }}/time_machine.js" defer></script>
+<script src="{{ nav.static }}/combobox.js" defer></script>
+{% endblock %}
