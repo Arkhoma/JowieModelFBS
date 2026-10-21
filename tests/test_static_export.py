@@ -96,6 +96,20 @@ def test_payload_reconstructs_a_full_prediction(games_2024, margin_model):
     assert win_prob == pytest.approx(live.home_win_probability)
 
 
+def test_payload_reconstructs_a_neutral_site_win_probability(
+    games_2024, margin_model,
+):
+    """Neutral sites average the count with its mirror image -- the
+    `neutral` branch of predict.js's winProbability()."""
+    predictor = Predictor.from_model(margin_model, games_2024)
+    payload = predictor_payload(predictor, ["Georgia", "Alabama"])
+    live = predictor.predict("Georgia", "Alabama", neutral_site=True)
+    margin = payload["calibrated"]["Georgia"] - payload["calibrated"]["Alabama"]
+    errors = np.array(payload["errors"])
+    win_prob = (np.mean(errors > -margin) + np.mean(errors < margin)) / 2
+    assert win_prob == pytest.approx(live.home_win_probability)
+
+
 def test_payload_errors_are_sorted(games_2024, margin_model):
     predictor = Predictor.from_model(margin_model, games_2024)
     payload = predictor_payload(predictor, [])

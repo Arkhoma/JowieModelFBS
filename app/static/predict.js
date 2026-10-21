@@ -16,19 +16,29 @@
   const model = JSON.parse(dataEl.textContent);
   const result = document.getElementById("result");
 
-  // Fraction of historical errors greater than -margin -- the same
-  // empirical count cfbrank.predict._empirical_win_probability does.
-  function winProbability(margin) {
+  // Index of the first sorted error that fails `keep` (binary search).
+  function firstFailing(keep) {
     const errors = model.errors;
-    if (!errors.length) return 0.5;
-    // errors is sorted ascending; count entries > -margin via the first
-    // index not satisfying (<= -margin), i.e. a manual upper_bound.
     let lo = 0, hi = errors.length;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
-      if (errors[mid] <= -margin) lo = mid + 1; else hi = mid;
+      if (keep(errors[mid])) lo = mid + 1; else hi = mid;
     }
-    return (errors.length - lo) / errors.length;
+    return lo;
+  }
+
+  // Fraction of historical errors greater than -margin -- the same
+  // empirical count cfbrank.predict._empirical_win_probability does.
+  // Neutral site: averaged with the mirror image, as in
+  // cfbrank.predict._neutral_win_probability, so swapping the two teams
+  // gives the same answer.
+  function winProbability(margin, neutral) {
+    const n = model.errors.length;
+    if (!n) return 0.5;
+    const above = (n - firstFailing((e) => e <= -margin)) / n;  // e > -margin
+    if (!neutral) return above;
+    const below = firstFailing((e) => e < margin) / n;           // e < margin
+    return (above + below) / 2;
   }
 
   function errorStd() {
@@ -79,7 +89,7 @@
 
     return {
       home, away, neutral, margin, total, homeScore, awayScore, factors,
-      winProbability: winProbability(margin),
+      winProbability: winProbability(margin, neutral),
       errorStd: errorStd(),
       favourite: margin > 0 ? home : away,
       spread: Math.abs(margin),

@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -68,6 +69,23 @@ def test_explain_mentions_both_teams(predictor_2024):
     text = predictor_2024.predict("Oregon", "Washington").explain()
     assert "Oregon" in text and "Washington" in text
     assert "Predicted" in text and "Win prob" in text
+
+
+def test_neutral_site_answer_ignores_who_is_listed_home(predictor_2024):
+    """On a neutral field 'home' is just a label -- the raw residual count
+    used to make these two add up to ~102%."""
+    for a, b in [("Ohio State", "Notre Dame"), ("Georgia", "Kansas")]:
+        ab = predictor_2024.predict(a, b, neutral_site=True)
+        ba = predictor_2024.predict(b, a, neutral_site=True)
+        assert ab.home_win_probability + ba.home_win_probability == pytest.approx(
+            1.0, abs=0.002)
+
+
+def test_true_home_games_keep_the_raw_residual_count(predictor_2024):
+    """Only neutral sites are mirrored; home field is real information."""
+    p = predictor_2024.predict("Georgia", "Alabama")
+    assert p.home_win_probability == pytest.approx(
+        float(np.mean(predictor_2024.errors > -p.predicted_margin)))
 
 
 def test_favourite_matches_margin_sign(predictor_2024):

@@ -43,15 +43,12 @@ def test_every_season_is_centred_on_an_average_fbs_team(snap):
 @pytest.mark.parametrize("a,b", PAIRS)
 def test_same_season_matches_the_regular_neutral_prediction(data, snap, a, b):
     live = data.predictor.predict(a, b, neutral_site=True)
-    flipped = data.predictor.predict(b, a, neutral_site=True)
     ours = matchup(snap, a, snap, b)
     assert ours["margin"] == pytest.approx(live.predicted_margin, abs=0.02)
     assert ours["total"] == pytest.approx(live.total, abs=0.05)
-    # The regular predictor's residuals are home-side and slightly skewed,
-    # so its A-vs-B and B-vs-A don't quite sum to 1. Averaged over both
-    # orderings it's the neutral answer the mirrored quantiles give.
-    neutral = (live.home_win_probability + 1 - flipped.home_win_probability) / 2
-    assert ours["win_a"] == pytest.approx(neutral, abs=0.01)
+    # Both mirror the residuals on a neutral field; 200 quantiles stand
+    # in for every game's miss, so within a point.
+    assert ours["win_a"] == pytest.approx(live.home_win_probability, abs=0.01)
 
 
 def test_matchup_is_symmetric(snap):

@@ -109,6 +109,22 @@ def _empirical_win_probability(
     return float(np.mean(errors > -margin))
 
 
+def _neutral_win_probability(margin: float, errors: np.ndarray) -> float:
+    """Same count over the errors AND their mirror image.
+
+    Residuals are measured from the home side and run slightly skewed
+    (+0.6 pts toward home teams in the 2021-25 walk-forward benchmark).
+    On a neutral field "home" is only a label, so the raw count made
+    A-vs-B and B-vs-A add up to ~102%. Mirroring makes the answer the
+    same whichever team is listed first. Measured on 330 walk-forward
+    neutral-site games: Brier 0.2203 raw vs 0.2207 mirrored, i.e. a wash
+    -- this is a consistency fix, not an accuracy one.
+    """
+    if errors.size == 0:
+        return 0.5
+    return float((np.mean(errors > -margin) + np.mean(errors < margin)) / 2)
+
+
 def _fit_scoring_environment(games: list[Game]) -> float:
     """Average combined points per game, for splitting margin into a score."""
     if not games:
@@ -222,6 +238,8 @@ class Predictor:
             vegas_margin = self.vegas.blend(
                 margin, home_team, away_team, neutral_site)
 
+        win_probability = (_neutral_win_probability if neutral_site
+                           else _empirical_win_probability)
         return Prediction(
             home_team=home_team,
             away_team=away_team,
@@ -229,8 +247,7 @@ class Predictor:
             predicted_margin=margin,
             home_score=home_score,
             away_score=away_score,
-            home_win_probability=_empirical_win_probability(
-                margin, self.errors),
+            home_win_probability=win_probability(margin, self.errors),
             error_std=float(np.std(self.errors)) if self.errors.size else 0.0,
             factors=factors,
             vegas_margin=vegas_margin,
