@@ -11,6 +11,9 @@ venv/
 .pytest_cache/
 .ruff_cache/
 
+# Tailwind standalone CLI (downloaded; see tools/build_css.py)
+tools/bin/
+
 # Cached API responses (large, regenerable)
 data/raw/
 data/cache/

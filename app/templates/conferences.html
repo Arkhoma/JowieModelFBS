@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% from "_season_menu.html" import season_menu with context %}
+{% block title %}Conference Races {{ season }} | JowieModel FBS{% endblock %}
+
+{% macro race_row(team, pct) %}
+<li class="py-2 border-t border-line first:border-0">
+  <div class="flex justify-between gap-3 text-sm">
+    {{ team_link(team) }}
+    <span class="tabular-nums font-bold">{{ "%.0f"|format(pct) }}%</span>
+  </div>
+  <div class="h-1.5 mt-1 bg-paper" aria-hidden="true">
+    <div class="h-full bg-navy" style="width: {{ pct }}%"></div>
+  </div>
+</li>
+{% endmacro %}
+
+{% macro pos(rank) %}{{ "%.2f"|format((rank - 1) / ((n_teams - 1) or 1) * 100) }}%{% endmacro %}
+
+{% block content %}
+
+<div class="flex flex-wrap items-end justify-between gap-4 mb-4">
+  <div>
+    <h2 class="page-title text-3xl sm:text-4xl">{{ season }} Conference Races</h2>
+    <p class="text-sm text-muted mt-1 max-w-2xl">
+      Odds of finishing with the best record in conference play, from 2,000
+      simulations of the rest of the season. Not the same as winning the
+      title &mdash; divisions, tie-breakers and title games aren't modeled.
+    </p>
+  </div>
+  {% call(s) season_menu() %}{{ conferences_url(s) }}{% endcall %}
+</div>
+
+{% if spread %}
+<section class="retro-card p-4 mb-8" aria-labelledby="spread-title">
+  <h3 id="spread-title" class="section-title text-lg">How Strong Is Each Conference?</h3>
+  <p class="text-xs text-muted mb-3">
+    Every member's predictive rank. Box = middle half of the conference,
+    <span class="text-brick font-bold">brick line</span> = median, dot = average,
+    whiskers = best to worst. Further left is stronger. Sorted by median.
+  </p>
+  <div class="flex justify-between text-xs text-muted mb-1" aria-hidden="true">
+    <span>#1 (best)</span><span>#{{ n_teams }}</span>
+  </div>
+  <ul>
+    {% for s in spread %}
+    <li class="py-2 border-t border-line first:border-0">
+      <div class="flex justify-between gap-2 text-sm">
+        <span class="font-bold">{{ s.conference }}</span>
+        <span class="text-xs text-muted">{{ s.teams }} teams</span>
+      </div>
+      <div class="spread-track" aria-hidden="true">
+        <span class="spread-whisker" style="left: {{ pos(s.best) }}; right: calc(100% - {{ pos(s.worst) }})"></span>
+        <span class="spread-box" style="left: {{ pos(s.q1) }}; right: calc(100% - {{ pos(s.q3) }})"></span>
+        <span class="spread-median" style="left: {{ pos(s.median) }}"></span>
+        <span class="spread-mean" style="left: {{ pos(s.mean) }}"></span>
+      </div>
+      <p class="text-xs text-muted tabular-nums">
+        Best #{{ s.best }} &middot; Q1 #{{ "%.0f"|format(s.q1) }} &middot;
+        Median #{{ "%.0f"|format(s.median) }} &middot; Avg #{{ "%.0f"|format(s.mean) }} &middot;
+        Q3 #{{ "%.0f"|format(s.q3) }} &middot; Worst #{{ s.worst }}
+      </p>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if season_complete %}
+<p class="retro-card p-3 mb-6 text-sm">
+  <strong>Season complete.</strong> 100% = finished with the best conference record.
+</p>
+{% endif %}
+
+{% if conference_races %}
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {% for conf, standings in conference_races.items()|sort %}
+  <section class="retro-card p-4" aria-labelledby="conf-{{ loop.index }}">
+    <h3 id="conf-{{ loop.index }}" class="section-title text-sm mb-1">{{ conf }}</h3>
+    <ul>
+      {% for team, pct in standings[:4] %}{{ race_row(team, pct) }}{% endfor %}
+    </ul>
+    {% if standings|length > 4 %}
+    <details class="mt-1">
+      <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wide text-navy py-2">
+        All {{ standings|length }} teams
+      </summary>
+      <ul>
+        {% for team, pct in standings[4:] %}{{ race_row(team, pct) }}{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-muted">No conference races for {{ season }} yet.</p>
+{% endif %}
+
+{% endblock %}

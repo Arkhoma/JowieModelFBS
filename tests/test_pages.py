@@ -18,8 +18,10 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from app.main import get_season  # noqa: E402
 from app.pages import (  # noqa: E402
-    LIVE_URLS, SiteUrls, base_context, playoff_context, predict_context,
-    team_context,
+    LIVE_URLS, SiteUrls, base_context, conference_spread, conferences_context,
+    link_teams,
+    playoff_context, predict_context, rankings_context, team_context,
+    team_index, team_link,
 )
 from build_static_site import STATIC_URLS, _env, _latest  # noqa: E402
 from check_static_links import broken_links  # noqa: E402
@@ -43,7 +45,8 @@ def test_base_context_defaults_to_live_urls():
 
 def test_base_context_uses_the_given_site():
     custom = SiteUrls(nav={}, rank=lambda s, k: "r", team=lambda t, s: "t",
-                      predict=lambda s: "p", playoff=lambda s: "o")
+                      predict=lambda s: "p", playoff=lambda s: "o",
+                      conferences=lambda s: "c")
     ctx = base_context("rankings", SEASON, urls=custom)
     assert ctx["team_url"]("X", SEASON) == "t"
     assert ctx["playoff_url"](SEASON) == "o"
@@ -112,6 +115,67 @@ def test_time_machine_page_renders_pickers_and_data(data):
     assert '<option value="2019" selected>' in html       # 2019 LSU default
     assert 'id="snapshots"' in html and "time_machine.js" in html
     assert "Vegas Script" not in html
+
+
+def test_team_link_links_fbs_and_leaves_fcs_as_text():
+    assert 'href="team-ohio-state.html"' in team_link("Ohio State", SEASON, STATIC_URLS)
+    assert team_link("Montana State", SEASON, STATIC_URLS) == "Montana State"
+
+
+def test_link_teams_prefers_the_longest_name_and_escapes():
+    html = str(link_teams("W 35-10 vs North Texas <b>, then Texas", SEASON, STATIC_URLS))
+    assert '>North Texas</a>' in html
+    assert 'href="team-texas.html" class="team-link">Texas</a>' in html
+    assert html.count("<a ") == 2                 # "Texas" inside "North Texas" not re-linked
+    assert "&lt;b&gt;" in html                    # free text is escaped
+
+
+def test_search_index_covers_every_fbs_team_season():
+    index = team_index(STATIC_URLS)
+    assert list(index["Sam Houston"]["u"])[0] == "2023"
+    assert index["Ohio State"]["u"][str(_latest())] == "team-ohio-state.html"
+    assert index["Ohio State"]["c"] == "Big Ten"
+    assert sum(len(e["u"]) for e in index.values()) == sum(
+        len(fbs_teams(s)) for s in available_seasons())
+
+
+def test_conference_races_have_their_own_page_with_team_links(data):
+    html = _render("conferences.html", "conferences", data, **conferences_context(data))
+    assert html.count('class="team-link"') >= len(data.conference_races) * 4
+    assert 'aria-current="page"' in html and "Confs" in html
+    rankings = _render("rankings.html", "rankings", data,
+                       **rankings_context(data, "predictive"))
+    assert "Conference Races</h3>" not in rankings
+
+
+def test_live_server_404s_an_unratable_season():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    client = TestClient(app)
+    assert client.get("/?season=1999").status_code == 404
+    assert client.get("/conferences?season=1999").status_code == 404
+    index = client.get("/search-index.json").json()
+    assert index["LSU"]["u"]["2019"] == "/team/LSU?season=2019"
+
+
+def test_conference_spread_stats():
+    rows = [{"conference": "A", "rank": r} for r in (1, 3, 5, 7, 9)]
+    rows += [{"conference": "B", "rank": r} for r in (2, 40)]
+    rows += [{"conference": "", "rank": 4}]          # independent: left out
+    a, b = conference_spread(rows)
+    assert (a["conference"], a["best"], a["q1"], a["median"], a["q3"], a["worst"],
+            a["mean"]) == ("A", 1, 3, 5, 7, 9, 5)
+    assert b["conference"] == "B" and b["median"] == 21    # sorted by median
+
+
+def test_conference_spread_on_real_data(data):
+    spread = conference_spread(data.rankings)
+    for s in spread:
+        assert s["best"] <= s["q1"] <= s["median"] <= s["q3"] <= s["worst"]
+    medians = [s["median"] for s in spread]
+    assert medians == sorted(medians)
+    html = _render("conferences.html", "conferences", data, **conferences_context(data))
+    assert html.count('class="spread-box"') == len(spread)
 
 
 def test_link_checker_catches_a_dead_link(tmp_path):

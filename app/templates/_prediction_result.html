@@ -36,7 +36,7 @@
       {% for team, pct in [(prediction.home_team, home_pct), (prediction.away_team, 100 - home_pct)] %}
       <div class="mb-3">
         <div class="flex justify-between text-sm mb-1">
-          <span>{{ team }}</span><span class="tabular-nums font-bold">{{ pct }}%</span>
+          <span>{{ team_link(team) }}</span><span class="tabular-nums font-bold">{{ pct }}%</span>
         </div>
         <div class="h-4 bg-paper border-2 border-ink">
           <div class="h-full {{ 'bg-brick' if loop.first else 'bg-ink' }}" style="width: {{ pct }}%"></div>

@@ -70,6 +70,16 @@ jobs:
       - name: Tests
         run: python -m pytest -q
 
+      # Tailwind compiled ahead of time (no in-browser CDN compiler), so
+      # the published CSS always matches the published templates.
+      - name: Build CSS
+        run: |
+          mkdir -p tools/bin
+          curl -sSfL -o tools/bin/tailwindcss \
+            https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-x64
+          chmod +x tools/bin/tailwindcss
+          python tools/build_css.py
+
       - name: Build static site
         run: python tools/build_static_site.py --out _site
 

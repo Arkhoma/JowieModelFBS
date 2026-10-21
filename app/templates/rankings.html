@@ -58,7 +58,7 @@
       <tr class="border-t border-ink/20 {% if shown and shown <= 12 %}top12{% endif %}">
         <td class="pin-rank text-right px-3 py-2 tabular-nums font-bold">{{ shown or "-" }}</td>
         <td class="pin-team px-3 py-2 font-bold">
-          <a href="{{ team_url(row.team, season) }}" class="hover:underline">{{ row.team }}</a>
+          {{ team_link(row.team) }}
           <span class="block text-xs font-normal text-muted">{{ row.conference }}</span>
         </td>
         <td class="text-right px-3 py-2 tabular-nums">{{ row.wins }}-{{ row.losses }}</td>
@@ -74,8 +74,8 @@
           <span class="block text-xs text-muted">{{ value }}</span>
         </td>
         {% endfor %}
-        <td class="px-3 py-2 text-xs hidden lg:table-cell">{{ row.best_win or "&mdash;"|safe }}</td>
-        <td class="px-3 py-2 text-xs hidden lg:table-cell">{{ row.worst_loss or "&mdash;"|safe }}</td>
+        <td class="px-3 py-2 text-xs hidden lg:table-cell">{{ link_teams(row.best_win) if row.best_win else "&mdash;"|safe }}</td>
+        <td class="px-3 py-2 text-xs hidden lg:table-cell">{{ link_teams(row.worst_loss) if row.worst_loss else "&mdash;"|safe }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -88,32 +88,7 @@
   Projected = most likely final record from 2,000 simulations of the
   remaining schedule, using this same model's own win probabilities.
   <a href="{{ nav.about }}" class="underline text-brick">How it works</a>
+  &middot; <a href="{{ conferences_url(season) }}" class="underline text-brick">Conference races</a>
 </p>
-
-{% if conference_races %}
-<div class="mt-8">
-  <h3 class="page-title text-xl mb-2">Conference Races</h3>
-  <p class="text-xs text-muted mb-4">
-    Odds of finishing with the best record in conference play, from the
-    same 2,000 simulations above. Not the same as winning the conference
-    title &mdash; divisions, tie-breakers and title games aren't modeled here.
-  </p>
-  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    {% for conf, standings in conference_races.items()|sort %}
-    <div class="retro-card p-3">
-      <h4 class="font-bold text-sm mb-2">{{ conf }}</h4>
-      <ul class="text-xs space-y-1">
-        {% for team, pct in standings[:4] %}
-        <li class="flex justify-between gap-2">
-          <span>{{ team }}</span>
-          <span class="tabular-nums font-bold">{{ "%.0f"|format(pct) }}%</span>
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
 
 {% endblock %}

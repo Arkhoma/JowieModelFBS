@@ -1,22 +1,7 @@
 // Searchable team picker (WAI-ARIA 1.2 combobox, list autocomplete).
 // Type to filter; arrows move; Enter/click picks; Esc closes; the toggle
-// button opens the full list like a dropdown.
-
-// How well a team matches the query; lower is better, null = no match.
-//   0 exact name        "tennessee" -> Tennessee
-//   1 name starts with  "tenn"      -> Tennessee (not Middle Tennessee)
-//   2 a word starts     "tenn"      -> Middle Tennessee
-//   3 anywhere in name  "essee"
-//   4 conference only   "sec"       -> every SEC team
-function matchScore(name, conference, q) {
-  if (!q) return 0;
-  if (name === q) return 0;
-  if (name.startsWith(q)) return 1;
-  if (name.split(/[\s\-&().]+/).some(w => w.startsWith(q))) return 2;
-  if (name.includes(q)) return 3;
-  if (conference.includes(q)) return 4;
-  return null;
-}
+// button opens the full list like a dropdown. Ranking uses matchScore()
+// from search.js (loaded on every page, before this file).
 
 (function () {
   function init(root) {

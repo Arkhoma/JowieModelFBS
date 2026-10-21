@@ -97,14 +97,10 @@
     };
   }
 
-  // Jinja autoescapes on the live site; innerHTML does not. The error
-  // path echoes whatever was typed, so everything interpolated goes
-  // through here.
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    })[c]);
-  }
+  // esc() comes from search.js. Team names render as data-team spans;
+  // linkTeams() (also search.js) upgrades them to team-page links.
+  const season = form.elements.season.value;
+  const teamSpan = (t) => `<span data-team="${esc(t)}" data-season="${season}">${esc(t)}</span>`;
 
   function fmt(n, digits) { return n.toFixed(digits); }
   function fmtSigned(n, digits) { return (n >= 0 ? "+" : "") + n.toFixed(digits); }
@@ -181,7 +177,7 @@
             ${rows.map(([team, pct, bar]) => `
               <div class="mb-3">
                 <div class="flex justify-between text-sm mb-1">
-                  <span>${esc(team)}</span><span class="tabular-nums font-bold">${pct}%</span>
+                  <span>${teamSpan(team)}</span><span class="tabular-nums font-bold">${pct}%</span>
                 </div>
                 <div class="h-4 bg-paper border-2 border-ink">
                   <div class="h-full ${bar}" style="width: ${pct}%"></div>
@@ -205,6 +201,7 @@
         </p>
         ${vegasBlock(p)}
       </div>`;
+    linkTeams(result);
   }
 
   function renderError(message) {

@@ -11,10 +11,10 @@
     <p class="text-sm text-muted mt-1">{{ row.conference }} &middot; {{ season }}</p>
     {% endif %}
   </div>
-  <div class="flex items-center gap-2">
+  <div class="flex flex-wrap items-center gap-2">
     {% call(s) season_menu(only=team_seasons) %}{{ team_url(team, s) }}{% endcall %}
     <a href="{{ rank_url(season, 'predictive') }}"
-       class="retro-btn retro-btn-ghost px-3 py-1.5 text-sm">&larr; Back to rankings</a>
+       class="retro-btn retro-btn-ghost px-3 py-1.5 text-sm">&larr; Rankings</a>
   </div>
 </div>
 
@@ -22,7 +22,7 @@
 <p class="text-sm text-muted">No {{ season }} data for "{{ team }}" -- it may not be an FBS team this season.</p>
 {% else %}
 
-<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+<div class="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
   <div class="retro-card p-4">
     <p class="text-xs text-muted uppercase tracking-wide">Record</p>
     <p class="text-2xl font-bold tabular-nums">{{ row.wins }}-{{ row.losses }}</p>
@@ -44,7 +44,7 @@
   <div class="retro-card p-4">
     <p class="text-xs text-muted uppercase tracking-wide">Resume rank</p>
     <p class="text-2xl font-bold tabular-nums">{% if row.resume_rank %}#{{ row.resume_rank }}{% else %}&mdash;{% endif %}</p>
-    {% if row.best_win %}<p class="text-xs text-muted">Best win: {{ row.best_win }}</p>{% endif %}
+    {% if row.best_win %}<p class="text-xs text-muted">Best win: {{ link_teams(row.best_win) }}</p>{% endif %}
   </div>
 </div>
 
@@ -52,7 +52,7 @@
 <section aria-labelledby="why" class="retro-card p-4 mb-8">
   <h3 id="why" class="section-title text-xl mb-2">Why #{{ row.rank }}</h3>
   <ul class="list-disc pl-5 space-y-1 text-sm">
-    {% for line in row.why %}<li>{{ line }}</li>{% endfor %}
+    {% for line in row.why %}<li>{{ link_teams(line) }}</li>{% endfor %}
   </ul>
 </section>
 {% endif %}
@@ -73,9 +73,9 @@
       <tr class="border-t border-ink/20">
         <td class="text-right px-3 py-2 tabular-nums">{{ g.week }}</td>
         <td class="px-3 py-2">
-          {% if g.location == "neutral" %}vs {{ g.opponent }} <span class="text-xs text-muted">(neutral)</span>
-          {% elif g.location == "at" %}at {{ g.opponent }}
-          {% else %}vs {{ g.opponent }}{% endif %}
+          {% if g.location == "neutral" %}vs {{ team_link(g.opponent) }} <span class="text-xs text-muted">(neutral)</span>
+          {% elif g.location == "at" %}at {{ team_link(g.opponent) }}
+          {% else %}vs {{ team_link(g.opponent) }}{% endif %}
         </td>
         <td class="text-right px-3 py-2 tabular-nums font-bold">
           {{ g.result if g.played else "\u2014" }}

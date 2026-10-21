@@ -27,12 +27,10 @@
              scoreA: (total + margin) / 2, scoreB: (total - margin) / 2 };
   }
 
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    })[c]);
-  }
+  // esc() and linkTeams() come from search.js.
   const fmtSigned = (n) => (n >= 0 ? "+" : "") + n.toFixed(1);
+  const teamSpan = (s) =>
+    `${s.year} <span data-team="${esc(s.team)}" data-season="${s.year}">${esc(s.team)}</span>`;
 
   function render(A, B, m) {
     const pctA = Math.round(m.winA * 100);
@@ -42,7 +40,7 @@
       : `${esc(fav.name)} by ${Math.abs(m.margin).toFixed(1)}`;
     const why = [A, B].map((s) => `
       <tr class="border-b border-dashed border-muted">
-        <td class="py-1.5">${esc(s.name)}
+        <td class="py-1.5">${teamSpan(s)}
           <span class="text-muted text-xs">#${s.row.rank} of ${esc(s.snap.label)}, ${esc(s.row.record)}</span></td>
         <td class="py-1.5 text-right tabular-nums font-bold ${s.row.rating < 0 ? "text-brick" : ""}">${fmtSigned(s.row.rating)}</td>
       </tr>`).join("");
@@ -70,7 +68,7 @@
             ${bars.map(([s, pct, bar]) => `
               <div class="mb-3">
                 <div class="flex justify-between text-sm mb-1">
-                  <span>${esc(s.name)}</span><span class="tabular-nums font-bold">${pct}%</span>
+                  <span>${teamSpan(s)}</span><span class="tabular-nums font-bold">${pct}%</span>
                 </div>
                 <div class="h-4 bg-paper border-2 border-ink">
                   <div class="h-full ${bar}" style="width: ${pct}%"></div>
@@ -91,6 +89,7 @@
           Anything inside two touchdowns is close to a coin flip.
         </p>
       </div>`;
+    linkTeams(result);
   }
 
   function renderError(message) {

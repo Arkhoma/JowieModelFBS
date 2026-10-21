@@ -3,11 +3,13 @@
     python tools/check_static_links.py _site
 
 Checks every relative href/src in every .html file (anchors, query
-strings and absolute http(s) URLs are ignored). Run by the publish
-workflow after the build, so a dead link fails CI instead of shipping.
+strings and absolute http(s) URLs are ignored), plus every page URL in
+search-index.json (the header search). Run by the publish workflow
+after the build, so a dead link fails CI instead of shipping.
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from collections import defaultdict
@@ -25,6 +27,12 @@ def broken_links(site: Path) -> dict[str, list[str]]:
                 continue
             if not (site / target).exists():
                 broken[target].append(page.name)
+    index = site / "search-index.json"
+    if index.exists():
+        for team, entry in json.loads(index.read_text(encoding="utf-8")).items():
+            for target in entry["u"].values():
+                if not (site / target).exists():
+                    broken[target].append(f"search-index.json ({team})")
     return dict(broken)
 
 

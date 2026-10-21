@@ -32,7 +32,7 @@
     {% for t in field if t.seed <= 4 %}
     <div class="retro-card p-3">
       <p class="text-xs text-muted uppercase tracking-wide">Seed {{ t.seed }}</p>
-      <p class="font-bold">{{ t.team }}</p>
+      <p class="font-bold">{{ team_link(t.team) }}</p>
       <p class="text-xs text-muted">{{ t.conference }} champion</p>
       <p class="text-xs text-muted mt-1">{{ "%.0f"|format(odds.won_it_all[t.team]) }}% to win it all</p>
     </div>
@@ -46,12 +46,12 @@
     {% for m in first_round %}
     <div class="retro-card p-3">
       <p class="text-sm">
-        <span class="font-bold">#{{ m.home.seed }} {{ m.home.team }}</span>
+        <span class="font-bold">#{{ m.home.seed }} {{ team_link(m.home.team) }}</span>
         <span class="text-muted">({{ "%.0f"|format(m.home_win_probability * 100) }}%)</span>
       </p>
       <p class="text-xs text-muted my-1">vs</p>
       <p class="text-sm">
-        <span class="font-bold">#{{ m.away.seed }} {{ m.away.team }}</span>
+        <span class="font-bold">#{{ m.away.seed }} {{ team_link(m.away.team) }}</span>
         <span class="text-muted">({{ "%.0f"|format((1 - m.home_win_probability) * 100) }}%)</span>
       </p>
     </div>
@@ -65,8 +65,8 @@
     <caption class="sr-only">Full 12-team field with bracket odds</caption>
     <thead>
       <tr>
-        <th scope="col" class="text-right px-3 py-2">Seed</th>
-        <th scope="col" class="text-left px-3 py-2">Team</th>
+        <th scope="col" class="pin-rank text-right px-3 py-2">Seed</th>
+        <th scope="col" class="pin-team text-left px-3 py-2">Team</th>
         <th scope="col" class="text-left px-3 py-2">Bid</th>
         <th scope="col" class="text-right px-3 py-2">Reach QF</th>
         <th scope="col" class="text-right px-3 py-2">Reach SF</th>
@@ -77,9 +77,9 @@
     <tbody>
       {% for t in field %}
       <tr class="border-t border-ink/20 {% if t.seed <= 4 %}top12{% endif %}">
-        <td class="text-right px-3 py-2 tabular-nums font-bold">{{ t.seed }}</td>
-        <td class="px-3 py-2 font-bold">
-          {{ t.team }}
+        <td class="pin-rank text-right px-3 py-2 tabular-nums font-bold">{{ t.seed }}</td>
+        <td class="pin-team px-3 py-2 font-bold">
+          {{ team_link(t.team) }}
           <span class="block text-xs font-normal text-muted">{{ t.conference }}</span>
         </td>
         <td class="px-3 py-2 text-xs">{{ "Auto bid" if t.champion else "At-large" }}</td>

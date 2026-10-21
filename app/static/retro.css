@@ -1,7 +1,7 @@
 /* JowieModel FBS -- clean 90s sports-page look, lifted from the NCAA's
    own retro pennant-and-football mark: navy for structure, brick-red as
-   the pop accent, cream page background. Palette lives in tailwind.config
-   (base.html); keep these hexes in sync:
+   the pop accent, cream page background. Palette lives in
+   tailwind.config.js (compiled into site.css); keep these hexes in sync:
      cream #f5efe0   card #fffbf2   ink #1c1a17   line #d8cfbd
      navy #2c3a63    navy-dark #1f2947    navy-light #dde2ef
      brick #a3431f   brick-dark #7c3015   brick-light #f1ddd0
@@ -37,6 +37,25 @@
 .nav-tab { color: #f5efe0; border-bottom: 3px solid transparent; }
 .nav-tab:hover { background: #1f2947; }
 .nav-tab[aria-current="page"] { border-bottom-color: #f5efe0; background: #1f2947; }
+
+/* Phones: the tab row scrolls inside itself if it's ever too tight, so
+   it can never push the whole page sideways (it did, by 7px). */
+.nav-strip { overflow-x: auto; scrollbar-width: none; }
+.nav-strip::-webkit-scrollbar { display: none; }
+
+/* Header search sits on the navy bar; results drop over the page. */
+.site-search input::placeholder { color: #5f574b; }
+
+/* Every team name on the site links to its page. Underlined, not just
+   colored, so links read as links on touch screens and to anyone who
+   can't tell the colors apart (WCAG 1.4.1). */
+.team-link {
+  text-decoration: underline;
+  text-decoration-color: rgba(44, 58, 99, .4);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.team-link:hover { color: #2c3a63; text-decoration-color: currentColor; }
 
 /* ---- Headings ----------------------------------------------------- */
 .page-title {
@@ -180,6 +199,26 @@ select:focus-visible, summary:focus-visible, [role="option"]:focus-visible {
   .stat-table th, .stat-table td { padding-left: .5rem; padding-right: .5rem; }
   .segmented a { padding: .4rem .6rem; font-size: .8rem; }
 }
+
+/* Touch screens: 44px targets for the controls people tap most (WCAG
+   2.5.8 asks 24px; 44px is the comfortable-thumb size). Mouse users
+   keep the compact desktop sizes. */
+@media (pointer: coarse) {
+  .segmented a, .menu > summary, .retro-btn {
+    min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .menu-list a { padding: .75rem 1.25rem; }
+}
+
+/* ---- Conference strength box plot (conferences.html) -------------- */
+/* Plain positioned spans; left/right set inline from the rank stats. */
+.spread-track { position: relative; height: 1.4rem; margin: .35rem 0; }
+.spread-track > * { position: absolute; }
+.spread-whisker { top: 50%; height: 2px; margin-top: -1px; background: #1c1a17; }
+.spread-box { top: 15%; bottom: 15%; background: #dde2ef; border: 2px solid #2c3a63; }
+.spread-median { top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: #a3431f; }
+.spread-mean { top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px;
+               border-radius: 50%; background: #1c1a17; border: 2px solid #fffbf2; }
 
 /* ---- Team search combobox ----------------------------------------- */
 .combo-list { max-height: 16rem; overflow-y: auto; }

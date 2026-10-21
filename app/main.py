@@ -12,8 +12,8 @@ from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -44,8 +44,9 @@ from cfbrank.vegas_script import (  # noqa: E402
 )
 
 from app.pages import (  # noqa: E402
-    SORTS, base_context, playoff_context, predict_context, rankings_context,
-    team_context, time_machine_context,
+    LIVE_URLS, SORTS, base_context, conferences_context, playoff_context,
+    predict_context, rankings_context, team_context, team_index,
+    time_machine_context,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -301,6 +302,17 @@ def _latest_season() -> int:
     return max(seasons)
 
 
+def _season(season: int | None) -> int:
+    """The requested season, or the latest. 404 for one we can't rate --
+    `?season=1999` used to crash the fit with a 500."""
+    if season is None:
+        return _latest_season()
+    if season not in available_seasons():
+        raise HTTPException(404, f"No {season} season. Try one of "
+                                 f"{available_seasons()[0]}-{_latest_season()}.")
+    return season
+
+
 @app.get("/", response_class=HTMLResponse)
 def rankings_page(
     request: Request,
@@ -313,7 +325,7 @@ def rankings_page(
     other rating always stays visible next to it. Seeing the disagreement
     is the point.
     """
-    season = season or _latest_season()
+    season = _season(season)
     sort = sort if sort in SORTS else "predictive"
     return TEMPLATES.TemplateResponse(request, "rankings.html", base_context(
         "rankings", season, **rankings_context(get_season(season), sort)))
@@ -326,7 +338,7 @@ def team_page(request: Request, team_name: str, season: int | None = None):
     `team_name` comes in URL-decoded by FastAPI already, so this matches
     directly against the rankings dict built from the same team names.
     """
-    season = season or _latest_season()
+    season = _season(season)
     return TEMPLATES.TemplateResponse(request, "team.html", base_context(
         "rankings", season, **team_context(get_season(season), team_name)))
 
@@ -339,14 +351,29 @@ def playoff_page(request: Request, season: int | None = None):
     already tried and gave up) -- the template shows a plain message
     instead of a broken bracket.
     """
-    season = season or _latest_season()
+    season = _season(season)
     return TEMPLATES.TemplateResponse(request, "playoff.html", base_context(
         "playoff", season, **playoff_context(get_season(season))))
 
 
+@app.get("/conferences", response_class=HTMLResponse)
+def conferences_page(request: Request, season: int | None = None):
+    """Conference races: odds of the best conference record, per league."""
+    season = _season(season)
+    return TEMPLATES.TemplateResponse(request, "conferences.html", base_context(
+        "conferences", season, **conferences_context(get_season(season))))
+
+
+@app.get("/search-index.json")
+def search_index():
+    """Every team-season page, for the header search. Schedule-only: no
+    model fit, so it's instant even on a cold server."""
+    return JSONResponse(team_index(LIVE_URLS))
+
+
 @app.get("/predict", response_class=HTMLResponse)
 def predict_page(request: Request, season: int | None = None):
-    season = season or _latest_season()
+    season = _season(season)
     return TEMPLATES.TemplateResponse(request, "predict.html", base_context(
         "predict", season, **predict_context(get_season(season))))
 
@@ -367,31 +394,25 @@ def run_prediction(
     season: int = Form(...),
     neutral_site: str = Form("off"),
 ):
-    data = get_season(season)
+    data = get_season(_season(season))
     is_neutral = neutral_site == "on"
     home_team, away_team = home_team.strip(), away_team.strip()
+
+    def result(**extra):
+        return TEMPLATES.TemplateResponse(request, "_prediction_result.html",
+                                          base_context("predict", season, **extra))
 
     # The pickers are free-text search boxes now, so a typo can reach us.
     known = data.model.fbs_ratings()
     unknown = [t for t in (away_team, home_team) if t not in known]
     if unknown:
-        return TEMPLATES.TemplateResponse(request, "_prediction_result.html", {
-            "error": f"Unknown team: {', '.join(unknown)}. "
-                     "Pick one from the list.",
-            "prediction": None,
-        })
-
+        return result(error=f"Unknown team: {', '.join(unknown)}. "
+                            "Pick one from the list.", prediction=None)
     if home_team == away_team:
-        return TEMPLATES.TemplateResponse(request, "_prediction_result.html", {
-            "error": "A team cannot play itself. Pick two different teams.",
-            "prediction": None,
-        })
-
-    prediction = data.predictor.predict(home_team, away_team, is_neutral)
-    return TEMPLATES.TemplateResponse(request, "_prediction_result.html", {
-        "prediction": prediction,
-        "error": None,
-    })
+        return result(error="A team cannot play itself. Pick two different teams.",
+                      prediction=None)
+    return result(prediction=data.predictor.predict(home_team, away_team, is_neutral),
+                  error=None)
 
 
 @app.get("/about", response_class=HTMLResponse)

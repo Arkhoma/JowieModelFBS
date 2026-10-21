@@ -10,11 +10,16 @@ every call (which is how the old `team_url=None` sentinel happened).
 
 from __future__ import annotations
 
+import re
+import statistics
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Callable
 from urllib.parse import quote
 
-from cfbrank.games import available_seasons, fbs_seasons
+from markupsafe import Markup, escape
+
+from cfbrank.games import available_seasons, fbs_seasons, fbs_teams, season_teams
 from cfbrank.playoff import FIRST_ROUND
 from cfbrank.time_machine import season_snapshot
 
@@ -22,22 +27,24 @@ from cfbrank.time_machine import season_snapshot
 @dataclass(frozen=True, slots=True)
 class SiteUrls:
     """Where every page lives on one site. Templates see these as
-    nav / rank_url / team_url / predict_url / playoff_url."""
+    nav / rank_url / team_url / predict_url / playoff_url / conferences_url."""
 
-    nav: dict                              # home, about, static, time_machine
+    nav: dict                    # home, about, static, time_machine, search_index
     rank: Callable[[int, str], str]        # (season, sort)
     team: Callable[[str, int], str]        # (team, season)
     predict: Callable[[int], str]          # (season)
     playoff: Callable[[int], str]          # (season)
+    conferences: Callable[[int], str]      # (season)
 
 
 LIVE_URLS = SiteUrls(
     nav={"home": "/", "about": "/about", "static": "/static",
-         "time_machine": "/time-machine"},
+         "time_machine": "/time-machine", "search_index": "/search-index.json"},
     rank=lambda season, sort: f"/?season={season}&sort={sort}",
     team=lambda team, season: f"/team/{quote(team)}?season={season}",
     predict=lambda season: f"/predict?season={season}",
     playoff=lambda season: f"/playoff?season={season}",
+    conferences=lambda season: f"/conferences?season={season}",
 )
 
 
@@ -49,6 +56,49 @@ def _rank_key(column: str):
 SORTS = {"predictive": _rank_key("rank"), "resume": _rank_key("resume_rank"),
          "offense": _rank_key("offense_rank"),
          "defense": _rank_key("defense_rank")}
+
+
+# --- Team links: every team name on the site goes through these. -------
+
+def team_link(team: str, season: int, urls: SiteUrls) -> Markup:
+    """Link to `team`'s page for `season` -- or plain text if it wasn't
+    FBS that season (FCS opponents have no page; no dead links)."""
+    if team not in fbs_teams(season):
+        return escape(team)
+    return Markup('<a href="{}" class="team-link">{}</a>').format(
+        urls.team(team, season), team)
+
+
+@lru_cache(maxsize=None)
+def _team_pattern(season: int) -> re.Pattern:
+    # Longest first, so "North Texas" / "Texas A&M" win over "Texas".
+    names = sorted(fbs_teams(season), key=len, reverse=True)
+    return re.compile(r"(?<!\w)(" + "|".join(map(re.escape, names)) + r")(?!\w)")
+
+
+def link_teams(text: str, season: int, urls: SiteUrls) -> Markup:
+    """Escape free text ("Best game: W 35-10 vs Georgia") and link every
+    FBS team named in it."""
+    parts, last = [], 0
+    for match in _team_pattern(season).finditer(text):
+        parts += [escape(text[last:match.start()]),
+                  team_link(match.group(1), season, urls)]
+        last = match.end()
+    parts.append(escape(text[last:]))
+    return Markup("").join(parts)
+
+
+def team_index(urls: SiteUrls) -> dict:
+    """{team: {"c": latest conference, "u": {season: page url}}} for every
+    team that was ever FBS. Backs the header search and the team links in
+    JS-rendered results; schedule-only, so it never fits a model."""
+    index: dict[str, dict] = {}
+    for season in available_seasons():          # oldest first: latest conf wins
+        for team, conf in season_teams(season).items():
+            entry = index.setdefault(team, {"c": conf, "u": {}})
+            entry["c"] = conf or entry["c"]
+            entry["u"][str(season)] = urls.team(team, season)
+    return index
 
 
 def base_context(active_tab: str, season: int, urls: SiteUrls = LIVE_URLS,
@@ -63,6 +113,9 @@ def base_context(active_tab: str, season: int, urls: SiteUrls = LIVE_URLS,
         "team_url": urls.team,
         "predict_url": urls.predict,
         "playoff_url": urls.playoff,
+        "conferences_url": urls.conferences,
+        "team_link": lambda team, s=season: team_link(team, s, urls),
+        "link_teams": lambda text, s=season: link_teams(text, s, urls),
         **extra,
     }
 
@@ -77,8 +130,36 @@ def rankings_context(data, sort: str) -> dict:
         "n_games": data.n_games,
         "max_week": data.max_week,
         "has_postseason": data.has_postseason,
-        "conference_races": data.conference_races,
     }
+
+
+def conferences_context(data) -> dict:
+    return {
+        "conference_races": data.conference_races,
+        "season_complete": not data.remaining,
+        "spread": conference_spread(data.rankings),
+        "n_teams": len(data.rankings),
+    }
+
+
+def conference_spread(rankings: list[dict]) -> list[dict]:
+    """Box-plot stats of predictive rank for each conference, best median
+    first. Rank: 1 = best, so "best" is the minimum rank. Independents
+    (blank conference) aren't a conference and are left out."""
+    by_conf: dict[str, list[int]] = {}
+    for row in rankings:
+        if row["conference"] and row["rank"]:
+            by_conf.setdefault(row["conference"], []).append(row["rank"])
+    spread = []
+    for conf, ranks in by_conf.items():
+        if len(ranks) < 2:          # quartiles need at least two teams
+            continue
+        q1, median, q3 = statistics.quantiles(ranks, n=4, method="inclusive")
+        spread.append({"conference": conf, "teams": len(ranks),
+                       "best": min(ranks), "q1": q1, "median": median,
+                       "q3": q3, "worst": max(ranks),
+                       "mean": statistics.fmean(ranks)})
+    return sorted(spread, key=lambda s: (s["median"], s["mean"]))
 
 
 def team_context(data, team: str) -> dict:

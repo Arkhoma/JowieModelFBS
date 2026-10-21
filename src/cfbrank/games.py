@@ -385,12 +385,26 @@ def team_divisions(games: list[Game]) -> dict[str, str]:
 
 
 @lru_cache(maxsize=None)
+def season_teams(season: int) -> dict[str, str]:
+    """Every FBS team in one season -> its conference, from the schedule
+    alone (no model fit, ~25 ms). Powers the site-wide team search and
+    team links. Same team set the rankings table shows (tests check).
+    Callers must not mutate the cached dict."""
+    games = load_season(season)
+    fbs = {t for t, d in team_divisions(games).items() if d == "fbs"}
+    conference: dict[str, str] = {}
+    for g in games:
+        for team, conf in ((g.home_team, g.home_conference),
+                           (g.away_team, g.away_conference)):
+            if team in fbs and conf:
+                conference.setdefault(team, conf)
+    return {team: conference.get(team, "") for team in sorted(fbs)}
+
+
+@lru_cache(maxsize=None)
 def fbs_teams(season: int) -> frozenset[str]:
-    """Every FBS team in one season, from the schedule alone -- no model
-    fit. Same set the rankings table shows (tests/test_app.py checks)."""
-    return frozenset(team for team, division
-                     in team_divisions(load_season(season)).items()
-                     if division == "fbs")
+    """Every FBS team in one season."""
+    return frozenset(season_teams(season))
 
 
 def fbs_seasons(team: str) -> list[int]:
