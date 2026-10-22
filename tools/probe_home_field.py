@@ -10,7 +10,7 @@ All features are known BEFORE kickoff (crowd = the home team's previous
 season average, never the game's own gate).
 
 Data: python tools/fetch_cfbd.py --only games --years 2019 ... 2026
-      (needs HTTPS_PROXY=http://proxy.wal-mart.com:8080 on the work laptop)
+      (behind a corporate network, set HTTPS_PROXY first)
 
 RESULT 2026-09-28 (v2, full CFBD attendance/venues, 2,902 FBS-vs-FBS
 home games 2021-25): in-sample, crowd fill (+0.44 per 10 pts of

@@ -746,7 +746,7 @@ line's 73.8% (was 72.8%). Improvement holds in all five seasons.
 
 - **Offense/defense split** -- built and measured 2026-09-24, see below.
 - **Recruiting talent** -- DONE 2026-09-25, see "CFBD roster priors" at
-  the end. CFBD turned out to be reachable via proxy.wal-mart.com.
+  the end. CFBD turned out to be reachable after all.
 - Early season is still where the gap lives (0.53 vs 0.20).
 
 ---
@@ -858,9 +858,9 @@ is too few to fit a bowl-specific correction honestly.
 
 ## CFBD roster priors: measured 2026-09-25
 
-CFBD is reachable after all: via `proxy.wal-mart.com:8080` (the PAC
-file's route), not `sysproxy`. `set HTTPS_PROXY=http://proxy.wal-mart.com:8080`
-then `tools/fetch_cfbd.py --only priors`. Free tier 1,000 calls/month.
+CFBD is reachable after all (behind a corporate network, set
+`HTTPS_PROXY` to your network's proxy first). Then run
+`tools/fetch_cfbd.py --only priors`. Free tier 1,000 calls/month.
 
 **Candidates** (`cfbrank/cfbd_priors.py`), screened by
 `tools/screen_priors.py`: held-out RMSE of each team's final rating,
