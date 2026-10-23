@@ -79,6 +79,10 @@
 
   <footer class="max-w-6xl mx-auto px-4 py-6 text-xs text-muted text-center border-t border-line mt-12">
     JowieModel FBS &middot; Data: CollegeFootballData and the sportsdataverse mirror
+    {% if data_through %}
+    <br>Stats current through {{ data_through }} &middot; refreshed weekly (Sun + Mon).
+    Mid-week games usually appear with the following weekend's update.
+    {% endif %}
   </footer>
 </body>
 </html>

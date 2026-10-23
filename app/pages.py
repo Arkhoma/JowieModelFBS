@@ -19,7 +19,9 @@ from urllib.parse import quote
 
 from markupsafe import Markup, escape
 
-from cfbrank.games import available_seasons, fbs_seasons, fbs_teams, season_teams
+from cfbrank.games import (
+    available_seasons, fbs_seasons, fbs_teams, load_season, season_teams,
+)
 from cfbrank.playoff import FIRST_ROUND
 from cfbrank.time_machine import season_snapshot
 
@@ -101,6 +103,25 @@ def team_index(urls: SiteUrls) -> dict:
     return index
 
 
+@lru_cache(maxsize=1)
+def _data_through() -> str | None:
+    """Date of the most recent completed game in the data.
+
+    Drives the footer's "stats current through" line, so a reader can
+    tell at a glance whether this week's games are in yet -- rather than
+    quietly wondering why a team's record looks a day behind. Reads the
+    latest season's completed games directly (cheap: just the CSV, no
+    model fit), independent of get_season's rating pipeline. None only
+    on a fresh checkout before the first data fetch has ever run.
+    """
+    latest = max(available_seasons())
+    kickoffs = [g.kickoff for g in load_season(latest) if g.kickoff]
+    if not kickoffs:
+        return None
+    latest_game = max(kickoffs)
+    return f"{latest_game:%B} {latest_game.day}, {latest_game.year}"
+
+
 def base_context(active_tab: str, season: int, urls: SiteUrls = LIVE_URLS,
                  **extra) -> dict:
     """Context every template needs, plus the page's own `extra`."""
@@ -116,6 +137,7 @@ def base_context(active_tab: str, season: int, urls: SiteUrls = LIVE_URLS,
         "conferences_url": urls.conferences,
         "team_link": lambda team, s=season: team_link(team, s, urls),
         "link_teams": lambda text, s=season: link_teams(text, s, urls),
+        "data_through": _data_through(),
         **extra,
     }
 

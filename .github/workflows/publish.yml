@@ -13,7 +13,19 @@ on:
   schedule:
     # GitHub cron is UTC only. 14:00 UTC = 9am Central in summer (CDT),
     # 8am in winter (CST). Scheduled runs can also start 5-15 min late.
-    - cron: "0 14 * * 0"
+    #
+    # Two runs a week, not one -- verified against the upstream mirror's
+    # own commit history (sportsdataverse/cfbfastR-data): it commits
+    # Saturday afternoon/evening, then AGAIN Sunday morning (~8-9:30am
+    # ET, comfortably before this Sunday run fires) with that week's
+    # full slate including late West Coast games, and then a THIRD time
+    # Monday (~9:30am-12:30pm ET, box-score corrections / Elo recalcs).
+    # A single Sunday-only schedule missed that Monday commit entirely
+    # until the following week. The mirror goes fully quiet Tue-Fri
+    # every week, so a mid-week run would just be a no-op against stale
+    # upstream data -- not worth adding.
+    - cron: "0 14 * * 0"   # Sunday: this week's full slate
+    - cron: "0 17 * * 1"   # Monday: catches upstream's correction commit
   workflow_dispatch: {}          # "Run workflow" button for a manual refresh
 
 permissions:
