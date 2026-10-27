@@ -125,6 +125,22 @@ def benchmark_rating(model, rank: int = BENCHMARK_RANK) -> float:
     return ratings[min(rank, len(ratings)) - 1]
 
 
+def _benchmark_win_probability(
+    model, errors: np.ndarray, benchmark: float,
+    opponent: str, is_home: bool, neutral_site: bool,
+) -> float:
+    """Chance the benchmark team wins this game, standing in for the team
+    that actually played it, at the same site. Margin never enters.
+
+    The single definition of a resume game's expectation -- shared by the
+    real resumes and the simulated ones so the two can't disagree.
+    """
+    edge = benchmark - model.rating(opponent)
+    if not neutral_site:
+        edge += model.home_field if is_home else -model.home_field
+    return _empirical_win_probability(edge, errors)
+
+
 def build_resumes(
     games: list[Game],
     model,
@@ -145,12 +161,8 @@ def build_resumes(
             (game.home_team, game.away_team, True),
             (game.away_team, game.home_team, False),
         ):
-            # The benchmark team stands in for `team`, playing `opponent`
-            # at the same site. Margin never enters.
-            edge = benchmark - model.rating(opponent)
-            if not game.neutral_site:
-                edge += model.home_field if is_home else -model.home_field
-            probability = _empirical_win_probability(edge, errors)
+            probability = _benchmark_win_probability(
+                model, errors, benchmark, opponent, is_home, game.neutral_site)
 
             won = game.winner == team
             record = resumes.setdefault(
@@ -177,3 +189,40 @@ def rank_resumes(
         key=lambda r: -r.score,
     )
     return list(enumerate(ordered, 1))
+
+
+def simulate_resume_ranks(
+    resumes: dict[str, TeamResume], model, errors: np.ndarray, sim,
+    rank: int = BENCHMARK_RANK,
+) -> tuple[list[str], np.ndarray]:
+    """Each simulated season's FINAL resume ranking of every FBS team.
+
+    Resume score is a plain sum over games of (won - benchmark's chance),
+    so a simulated finish is just today's score plus the same credit for
+    every simulated game. Nothing new is modelled -- this is the existing
+    definition applied to the shared simulation's results.
+
+    Returns (teams, ranks): `ranks[i, j]` is `teams[j]`'s resume rank (1 =
+    best) at the end of simulated season i. `teams` is in today's rank
+    order and ties break the same way, so a season with nothing left to
+    play reproduces today's ranking exactly.
+    """
+    teams = [r.team for _, r in rank_resumes(resumes, model)]
+    column = {team: j for j, team in enumerate(teams)}
+    scores = np.tile([resumes[t].score for t in teams], (sim.n_sims, 1))
+    benchmark = benchmark_rating(model, rank)
+
+    for i, sg in enumerate(sim.games):
+        game = sg.game
+        home_won = sim.home_wins[:, i]
+        for team, opponent, is_home, won in (
+            (game.home_team, game.away_team, True, home_won),
+            (game.away_team, game.home_team, False, ~home_won),
+        ):
+            if team in column:
+                scores[:, column[team]] += won - _benchmark_win_probability(
+                    model, errors, benchmark, opponent, is_home,
+                    game.neutral_site)
+
+    ranks = (-scores).argsort(axis=1, kind="stable").argsort(axis=1) + 1
+    return teams, ranks

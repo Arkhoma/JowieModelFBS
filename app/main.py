@@ -39,7 +39,9 @@ from cfbrank.projection import (  # noqa: E402
     project_all, project_conference_races, simulate_conference_champions,
     simulate_remaining,
 )
-from cfbrank.resume import build_resumes, rank_resumes  # noqa: E402
+from cfbrank.resume import (  # noqa: E402
+    build_resumes, rank_resumes, simulate_resume_ranks,
+)
 from cfbrank.ridge import fit  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
 from cfbrank.vegas_script import (  # noqa: E402
@@ -180,13 +182,17 @@ def get_season(season: int) -> SeasonModel:
 
     # Playoff field: seeded from Resume rank (not Predictive -- see
     # cfbrank.playoff for why). The field is rebuilt for EVERY simulated
-    # season from that season's own conference champions (same shared
-    # draw as the races above), not once from each conference's likeliest
-    # finisher -- a diffuse race like the SEC's would otherwise be
-    # represented by one team that usually isn't the one who wins it.
+    # season from that season's own conference champions and its own
+    # final resume ranking (same shared draw as the races above), not
+    # once from each conference's likeliest finisher -- a diffuse race
+    # like the SEC's would otherwise be represented by one team that
+    # usually isn't the one who wins it.
     champions = simulate_conference_champions(conference_of, games, sim)
+    ranked_teams, simulated_ranks = simulate_resume_ranks(
+        resumes, model, predictor.errors, sim)
     try:
-        fields = simulate_fields(resume_rank, conference_of, champions, sim.n_sims)
+        fields = simulate_fields(ranked_teams, simulated_ranks,
+                                 conference_of, champions)
         playoff_odds = simulate_bracket(fields, predictor)
         playoff_field = consensus_field(playoff_odds, resume_rank, conference_of)
     except ValueError:

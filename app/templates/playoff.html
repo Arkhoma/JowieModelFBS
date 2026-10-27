@@ -34,7 +34,7 @@
     <div class="retro-card p-3">
       <p class="text-xs text-muted uppercase tracking-wide">Seed {{ t.seed }}</p>
       <p class="font-bold">{{ team_link(t.team) }}</p>
-      <p class="text-xs text-muted">{{ t.conference }} &middot; {{ "%.0f"|format(odds.bye[t.team]) }}% to get a bye</p>
+      <p class="text-xs text-muted">{{ t.conference or "Independent" }} &middot; {{ "%.0f"|format(odds.bye[t.team]) }}% to get a bye</p>
       <p class="text-xs text-muted mt-1">{{ "%.0f"|format(odds.won_it_all[t.team]) }}% to win it all</p>
     </div>
     {% endfor %}
@@ -83,7 +83,7 @@
         <td class="pin-rank text-right px-3 py-2 tabular-nums font-bold">{{ t.seed }}</td>
         <td class="pin-team px-3 py-2 font-bold">
           {{ team_link(t.team) }}
-          <span class="block text-xs font-normal text-muted">{{ t.conference }}</span>
+          <span class="block text-xs font-normal text-muted">{{ t.conference or "Independent" }}</span>
         </td>
         <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.made_field[t.team]) }}%</td>
         <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.auto_bid[t.team]) }}%</td>
@@ -117,7 +117,7 @@
         <tr class="border-t border-ink/20">
           <td class="px-3 py-2 font-bold">
             {{ team_link(b.team) }}
-            <span class="block text-xs font-normal text-muted">{{ b.conference }}</span>
+            <span class="block text-xs font-normal text-muted">{{ b.conference or "Independent" }}</span>
           </td>
           <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(b.made_field) }}%</td>
           <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(b.auto_bid) }}%</td>
@@ -131,13 +131,19 @@
 {% endif %}
 
 <p class="text-xs text-muted mt-4">
-  5 auto bids go to the highest-(Resume-rank)-ranked conference champions;
-  the top 4 of those get the bye. The other 7 spots are at-large, filled
-  by rank regardless of conference. "Champion" means the best in-conference
-  record in a simulated season, so a wide-open conference sends different
-  teams in different seasons. The bracket above is the 12 teams most often
-  in the field; the odds already count every simulated season, including
-  the ones where someone not shown here gets in.
+  2026&ndash;27 format. Auto bids: the ACC, Big Ten, Big 12 and SEC champions
+  (however they rank), the highest-ranked team from the American, Conference USA,
+  MAC, Mountain West, Pac-12 and Sun Belt (it needn't be a champion), and Notre
+  Dame if it ranks in the top 12 &mdash; which leaves 6 at-large spots instead
+  of 7. Seeding is straight by ranking: the four best-ranked teams get byes,
+  and an auto bid ranked outside the top 12 sits at the bottom. Rankings are
+  the Resume ranking, re-run for each simulated season, and "champion" means
+  the best in-conference record in that season &mdash; so a wide-open race sends
+  different teams in different seasons. The bracket above is the 12 teams most
+  often in the field; the four likeliest byes take seeds 1&ndash;4 and the rest
+  are ordered by the average seed they got when they made it. The odds count
+  every simulated season, including the ones where someone not shown here gets in.
+  Older seasons are what-ifs under these rules.
 </p>
 
 {% endif %}

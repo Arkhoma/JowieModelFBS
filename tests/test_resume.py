@@ -12,8 +12,10 @@ import pytest
 
 from cfbrank.resume import (
     BENCHMARK_RANK, ResumeGame, benchmark_rating, build_resumes, rank_resumes,
+    simulate_resume_ranks,
 )
-from cfbrank.games import Game
+from cfbrank.games import Game, ScheduledGame
+from cfbrank.projection import SeasonSimulation, SimGame
 
 
 def make_game(home, away, home_points, away_points, week=1, neutral=False):
@@ -172,3 +174,56 @@ class TestReporting:
         resumes = build_resumes(games, model, ERRORS)
         ranked = rank_resumes(resumes, model)
         assert [r.team for _, r in ranked] == ["A"]
+
+
+class TestSimulatedRanks:
+    """Each simulated season gets its own final resume ranking: today's
+    score plus the same per-game credit for every simulated result."""
+
+    RATINGS = {"A": 10.0, "B": 5.0, "C": 0.0}
+
+    def _played(self):
+        # A and B each beat C at home: identical resumes, so they tie and
+        # today's order (A, B, C) is whatever the stable sort gives.
+        return [make_game("A", "C", 30, 10, week=1),
+                make_game("B", "C", 30, 10, week=2)]
+
+    def _sim(self, outcomes):
+        """One scheduled A-vs-B game, `outcomes[i]` = did home (A) win in
+        trial i."""
+        game = ScheduledGame(
+            season=2026, week=3, kickoff=None, home_team="A", away_team="B",
+            home_division="fbs", away_division="fbs",
+            neutral_site=False, conference_game=False)
+        return SeasonSimulation(
+            games=[SimGame(game, 0.5)],
+            home_wins=np.array(outcomes, dtype=bool).reshape(-1, 1),
+            n_sims=len(outcomes))
+
+    def test_nothing_left_to_play_reproduces_todays_ranking(self):
+        model = FakeModel(self.RATINGS)
+        resumes = build_resumes(self._played(), model, ERRORS)
+        empty = SeasonSimulation(games=[], home_wins=np.empty((3, 0), dtype=bool),
+                                 n_sims=3)
+        teams, ranks = simulate_resume_ranks(resumes, model, ERRORS, empty)
+        today = {r.team: rank for rank, r in rank_resumes(resumes, model)}
+        for row in ranks:
+            assert dict(zip(teams, row.tolist())) == today
+
+    def test_winning_the_simulated_game_moves_a_team_up(self):
+        model = FakeModel(self.RATINGS)
+        resumes = build_resumes(self._played(), model, ERRORS)
+        teams, ranks = simulate_resume_ranks(
+            resumes, model, ERRORS, self._sim([True, False]))
+        a, b = teams.index("A"), teams.index("B")
+        # Trial 0: A beats B. Trial 1: B wins at A's place.
+        assert ranks[0, a] < ranks[0, b]
+        assert ranks[1, b] < ranks[1, a]
+
+    def test_every_trial_is_a_full_permutation(self):
+        model = FakeModel(self.RATINGS)
+        resumes = build_resumes(self._played(), model, ERRORS)
+        teams, ranks = simulate_resume_ranks(
+            resumes, model, ERRORS, self._sim([True, False, True]))
+        for row in ranks:
+            assert sorted(row.tolist()) == list(range(1, len(teams) + 1))
