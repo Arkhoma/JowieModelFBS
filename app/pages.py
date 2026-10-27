@@ -221,12 +221,35 @@ def time_machine_context(get_season) -> dict:
     }
 
 
+# Teams outside the projected bracket still get a row if they make the
+# field in at least this share of simulated seasons -- otherwise a team
+# that's in 40% of the time would simply vanish from the page.
+BUBBLE_MIN_PCT = 5.0
+
+
+def bubble_teams(data) -> list[dict]:
+    """Teams NOT on the projected bracket that still have real odds of
+    making the field, most likely first."""
+    odds = data.playoff_odds
+    on_bracket = {t.team for t in data.playoff_field}
+    conference = {r["team"]: r["conference"] for r in data.rankings}
+    return [
+        {"team": team, "conference": conference.get(team, ""),
+         "made_field": pct, "auto_bid": odds.auto_bid[team],
+         "won_it_all": odds.won_it_all[team]}
+        for team, pct in sorted(odds.made_field.items(), key=lambda kv: -kv[1])
+        if team not in on_bracket and pct >= BUBBLE_MIN_PCT
+    ]
+
+
 def playoff_context(data) -> dict:
+    has_field = bool(data.playoff_field)
     return {
         "field": data.playoff_field,
         "odds": data.playoff_odds,
         "first_round": (first_round_matchups(data.playoff_field, data.predictor)
-                        if data.playoff_field else []),
+                        if has_field else []),
+        "bubble": bubble_teams(data) if has_field else [],
         # Nothing left to play: the bracket is a what-if on final ratings.
         "season_complete": not data.remaining,
     }

@@ -163,17 +163,15 @@ def _current_conference_wins(played: list[Game]) -> dict[str, int]:
     return wins
 
 
-def project_conference_races(
+def _conference_win_matrices(
     conference_of: dict[str, str], played: list[Game], sim: SeasonSimulation,
-) -> dict[str, list[tuple[str, float]]]:
-    """Per conference: each team's odds of finishing with the most wins
-    IN CONFERENCE games.
+):
+    """Yield (conference, teams, wins) for every real conference, where
+    `wins` is an n_sims x len(teams) matrix of simulated IN-CONFERENCE
+    wins: games already played plus the shared simulation's remainder.
 
-    This is deliberately not "wins the conference championship" -- actual
-    tie-breakers, divisions and title games vary by conference and aren't
-    modelled here. "Best conference record" is the honest, calculable
-    proxy. Ties split the win credit evenly across the tied teams so each
-    conference's odds sum to 100%.
+    The one place that turns the simulation into conference standings, so
+    the race odds and the simulated champions can't drift apart.
     """
     by_conference: dict[str, list[str]] = {}
     for team, conf in conference_of.items():
@@ -182,7 +180,6 @@ def project_conference_races(
 
     current_wins = _current_conference_wins(played)
 
-    results: dict[str, list[tuple[str, float]]] = {}
     for conf, teams in by_conference.items():
         if len(teams) < 2:
             continue
@@ -203,7 +200,23 @@ def project_conference_races(
                 conf_wins[:, col] = baseline + won.sum(axis=1)
             else:
                 conf_wins[:, col] = baseline
+        yield conf, teams, conf_wins
 
+
+def project_conference_races(
+    conference_of: dict[str, str], played: list[Game], sim: SeasonSimulation,
+) -> dict[str, list[tuple[str, float]]]:
+    """Per conference: each team's odds of finishing with the most wins
+    IN CONFERENCE games.
+
+    This is deliberately not "wins the conference championship" -- actual
+    tie-breakers, divisions and title games vary by conference and aren't
+    modelled here. "Best conference record" is the honest, calculable
+    proxy. Ties split the win credit evenly across the tied teams so each
+    conference's odds sum to 100%.
+    """
+    results: dict[str, list[tuple[str, float]]] = {}
+    for conf, teams, conf_wins in _conference_win_matrices(conference_of, played, sim):
         best = conf_wins.max(axis=1, keepdims=True)
         is_best = conf_wins >= best
         credit = is_best / is_best.sum(axis=1, keepdims=True)
@@ -211,3 +224,29 @@ def project_conference_races(
         results[conf] = sorted(zip(teams, odds.tolist()),
                                key=lambda kv: -kv[1])
     return results
+
+
+def simulate_conference_champions(
+    conference_of: dict[str, str], played: list[Game], sim: SeasonSimulation,
+    seed: int = DEFAULT_SEED,
+) -> dict[str, list[str]]:
+    """Per conference: the "champion" (best in-conference record) of EACH
+    simulated season, one team name per trial.
+
+    Same proxy as `project_conference_races`, but keeping the draw-by-draw
+    outcome instead of collapsing it to odds. A downstream consumer (the
+    playoff field) needs a whole self-consistent season per trial -- the
+    SEC champion in trial 17 and the SEC champion in trial 18 can be
+    different teams, and the field should see that, not one
+    "likeliest" team repeated every time.
+
+    Co-leaders are separated by a random draw, which hands each its fair
+    share of ties -- the same even split the race odds use.
+    """
+    rng = np.random.default_rng(seed)
+    champions: dict[str, list[str]] = {}
+    for conf, teams, conf_wins in _conference_win_matrices(conference_of, played, sim):
+        # Jitter stays under one win, so it can only break exact ties.
+        jittered = conf_wins + rng.random(conf_wins.shape) * 0.5
+        champions[conf] = np.array(teams)[jittered.argmax(axis=1)].tolist()
+    return champions

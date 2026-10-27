@@ -18,6 +18,7 @@ from cfbrank.projection import (  # noqa: E402
     project_all,
     project_conference_races,
     project_team,
+    simulate_conference_champions,
     simulate_remaining,
 )
 from cfbrank.ridge import fit  # noqa: E402
@@ -86,18 +87,51 @@ def test_project_all_covers_every_requested_team(sim_2026):
     assert set(projections) == set(teams)
 
 
-def test_conference_race_odds_sum_to_100(played_2026, sim_2026):
+def _conference_of(played):
     conference_of = {
-        g.home_team: g.home_conference for g in played_2026 if g.home_conference
+        g.home_team: g.home_conference for g in played if g.home_conference
     }
     conference_of.update({
-        g.away_team: g.away_conference for g in played_2026 if g.away_conference
+        g.away_team: g.away_conference for g in played if g.away_conference
     })
-    races = project_conference_races(conference_of, played_2026, sim_2026)
+    return conference_of
+
+
+def test_conference_race_odds_sum_to_100(played_2026, sim_2026):
+    races = project_conference_races(_conference_of(played_2026), played_2026, sim_2026)
     assert races
     for conf, standings in races.items():
         total = sum(pct for _, pct in standings)
         assert total == pytest.approx(100.0, abs=0.5), conf
+
+
+def test_simulated_champions_are_one_member_per_trial(played_2026, sim_2026):
+    conference_of = _conference_of(played_2026)
+    champions = simulate_conference_champions(conference_of, played_2026, sim_2026)
+    assert champions
+    for conf, per_trial in champions.items():
+        assert len(per_trial) == sim_2026.n_sims, conf
+        assert {conference_of[t] for t in per_trial} == {conf}
+
+
+def test_simulated_champions_agree_with_the_race_odds(played_2026, sim_2026):
+    """Same simulation, two views: how often a team is crowned champion
+    must match its race odds (tied credit is split by a random draw, so
+    allow sampling noise)."""
+    conference_of = _conference_of(played_2026)
+    races = project_conference_races(conference_of, played_2026, sim_2026)
+    champions = simulate_conference_champions(conference_of, played_2026, sim_2026)
+    for conf, standings in races.items():
+        for team, odds in standings[:3]:
+            crowned = champions[conf].count(team) / sim_2026.n_sims * 100
+            assert crowned == pytest.approx(odds, abs=6.0), (conf, team)
+
+
+def test_simulated_champions_are_deterministic_for_same_seed(played_2026, sim_2026):
+    conference_of = _conference_of(played_2026)
+    a = simulate_conference_champions(conference_of, played_2026, sim_2026, seed=3)
+    b = simulate_conference_champions(conference_of, played_2026, sim_2026, seed=3)
+    assert a == b
 
 
 def test_conference_race_is_deterministic_for_same_seed(remaining_2026, predictor_2026):

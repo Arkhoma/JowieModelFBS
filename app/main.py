@@ -29,12 +29,15 @@ from cfbrank.games import (  # noqa: E402
 from cfbrank.lines import home_lines  # noqa: E402
 from cfbrank.offdef_prior import fit_points_model  # noqa: E402
 from cfbrank.explain import explain_rankings  # noqa: E402
-from cfbrank.playoff import select_field, simulate_bracket  # noqa: E402
+from cfbrank.playoff import (  # noqa: E402
+    consensus_field, simulate_bracket, simulate_fields,
+)
 from cfbrank.predict import Predictor  # noqa: E402
 from cfbrank.prior import home_field_prior  # noqa: E402
 from cfbrank.prior_model import build_roster_prior_or_empty  # noqa: E402
 from cfbrank.projection import (  # noqa: E402
-    project_all, project_conference_races, simulate_remaining,
+    project_all, project_conference_races, simulate_conference_champions,
+    simulate_remaining,
 )
 from cfbrank.resume import build_resumes, rank_resumes  # noqa: E402
 from cfbrank.ridge import fit  # noqa: E402
@@ -176,15 +179,16 @@ def get_season(season: int) -> SeasonModel:
     conference_races = project_conference_races(conference_of, games, sim)
 
     # Playoff field: seeded from Resume rank (not Predictive -- see
-    # cfbrank.playoff for why), champions taken as each conference's
-    # likeliest finisher from the same conference-race odds above.
-    champion_of_conference = {
-        conf: standings[0][0] for conf, standings in conference_races.items()
-        if standings
-    }
+    # cfbrank.playoff for why). The field is rebuilt for EVERY simulated
+    # season from that season's own conference champions (same shared
+    # draw as the races above), not once from each conference's likeliest
+    # finisher -- a diffuse race like the SEC's would otherwise be
+    # represented by one team that usually isn't the one who wins it.
+    champions = simulate_conference_champions(conference_of, games, sim)
     try:
-        playoff_field = select_field(resume_rank, conference_of, champion_of_conference)
-        playoff_odds = simulate_bracket(playoff_field, predictor)
+        fields = simulate_fields(resume_rank, conference_of, champions, sim.n_sims)
+        playoff_odds = simulate_bracket(fields, predictor)
+        playoff_field = consensus_field(playoff_odds, resume_rank, conference_of)
     except ValueError:
         # Too few ranked conferences/teams for a 12-team field (a thin
         # fixture season, say) -- no playoff page rather than a broken one.

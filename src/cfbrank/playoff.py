@@ -18,21 +18,33 @@ Format matches the 2024-season 12-team CFP:
         round after that is a neutral site.
 
 "Conference champion" is read from the shared season simulation
-(cfbrank.projection.project_conference_races) as whichever team is most
-likely to finish with the best in-conference record -- a point estimate
-like every other number on this site, not a guarantee. Call sites are
-expected to have already dropped non-championship groupings (FBS
-Independents and anything else that isn't a real conference) before
-this module ever sees them.
+(cfbrank.projection.simulate_conference_champions): whoever finishes
+with the best in-conference record IN THAT TRIAL. The field is rebuilt
+for every trial, so a diffuse race (the SEC, say, split four ways) sends
+different teams -- with different resumes -- to different trials, instead
+of one "likeliest" team standing in for the whole conference. Odds of
+making the field, getting a bye and winning each round are all counted
+across those trials; the single bracket shown on the page is read back
+off those odds (`consensus_field`).
+
+One simplification: Resume rank is the CURRENT one in every trial. A
+simulated future doesn't get its own re-ranking (that would be a second
+model), so a team's seed doesn't move with its simulated wins and losses.
+
+Call sites are expected to have already dropped non-championship
+groupings (FBS Independents and anything else that isn't a real
+conference) before this module ever sees them.
 """
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 
 import numpy as np
 
 from .predict import Predictor
+from .projection import DEFAULT_SEED
 
 AUTO_BIDS = 5
 BYE_SEEDS = 4
@@ -100,11 +112,37 @@ def select_field(
     ]
 
 
+def simulate_fields(
+    resume_rank: dict[str, int],
+    conference_of: dict[str, str],
+    champions_by_conference: dict[str, list[str]],
+    n_sims: int,
+) -> list[list[PlayoffTeam]]:
+    """One 12-team field per simulated season, each built from that
+    trial's own conference champions via the same `select_field` rules.
+
+    `champions_by_conference` is what
+    `projection.simulate_conference_champions` returns: conference ->
+    one champion per trial.
+    """
+    return [
+        select_field(resume_rank, conference_of,
+                     {conf: champs[i] for conf, champs in champions_by_conference.items()})
+        for i in range(n_sims)
+    ]
+
+
 @dataclass(frozen=True, slots=True)
 class BracketOdds:
-    """Per-team odds of reaching each round, from the shared simulation."""
+    """Per-team odds (percent of simulated seasons), keyed by every team
+    that appeared in ANY simulated field -- not just the ones on the
+    page's projected bracket. Round odds are unconditional: a team that
+    misses the field in 70% of trials has at most a 30% shot at anything.
+    """
 
-    field: list[PlayoffTeam]
+    made_field: dict[str, float]
+    auto_bid: dict[str, float]
+    bye: dict[str, float]
     reached_quarterfinal: dict[str, float]
     reached_semifinal: dict[str, float]
     reached_championship: dict[str, float]
@@ -112,28 +150,38 @@ class BracketOdds:
 
 
 def simulate_bracket(
-    field: list[PlayoffTeam], predictor: Predictor,
-    n_sims: int = 2000, seed: int = 20260101,
+    fields: list[list[PlayoffTeam]], predictor: Predictor,
+    seed: int = DEFAULT_SEED,
 ) -> BracketOdds:
-    """Monte Carlo the single-elimination bracket, game probabilities read
-    straight off this same Predictor -- exactly how every other matchup
-    on the site is scored, hypothetical or not.
+    """Play out one single-elimination bracket per field in `fields`
+    (one per simulated season), game probabilities read straight off this
+    same Predictor -- exactly how every other matchup on the site is
+    scored, hypothetical or not.
     """
-    by_seed = {t.seed: t.team for t in field}
     rng = np.random.default_rng(seed)
     ratings = predictor.model.ratings
+    cache: dict[tuple[str, str, bool], float] = {}
 
     def win_probability(home: str, away: str, neutral: bool) -> float:
-        if home not in ratings or away not in ratings:
-            return 0.5  # shouldn't happen -- the field is built from rated teams
-        return predictor.predict(home, away, neutral).home_win_probability
+        key = (home, away, neutral)
+        if key not in cache:
+            if home not in ratings or away not in ratings:
+                cache[key] = 0.5  # shouldn't happen -- fields are built from rated teams
+            else:
+                cache[key] = predictor.predict(home, away, neutral).home_win_probability
+        return cache[key]
 
-    reached_qf = {t.team: 0 for t in field}
-    reached_sf = {t.team: 0 for t in field}
-    reached_champ = {t.team: 0 for t in field}
-    won_title = {t.team: 0 for t in field}
+    made, auto, bye = Counter(), Counter(), Counter()
+    reached_qf, reached_sf = Counter(), Counter()
+    reached_champ, won_title = Counter(), Counter()
 
-    for _ in range(n_sims):
+    for field in fields:
+        by_seed = {t.seed: t.team for t in field}
+        for t in field:
+            made[t.team] += 1
+            auto[t.team] += t.champion
+            bye[t.team] += t.seed <= BYE_SEEDS
+
         round1 = {}
         for hi, lo in FIRST_ROUND:
             home, away = by_seed[hi], by_seed[lo]
@@ -161,14 +209,43 @@ def simulate_bracket(
         reached_champ[champ_a] += 1
         reached_champ[champ_b] += 1
         p = win_probability(champ_a, champ_b, neutral=True)
-        champion = champ_a if rng.random() < p else champ_b
-        won_title[champion] += 1
+        won_title[champ_a if rng.random() < p else champ_b] += 1
 
-    n = float(n_sims)
+    scale = 100.0 / len(fields)
+
+    def pct(counts: Counter) -> dict[str, float]:
+        return {team: counts[team] * scale for team in made}
+
     return BracketOdds(
-        field=field,
-        reached_quarterfinal={t: c / n * 100 for t, c in reached_qf.items()},
-        reached_semifinal={t: c / n * 100 for t, c in reached_sf.items()},
-        reached_championship={t: c / n * 100 for t, c in reached_champ.items()},
-        won_it_all={t: c / n * 100 for t, c in won_title.items()},
+        made_field=pct(made), auto_bid=pct(auto), bye=pct(bye),
+        reached_quarterfinal=pct(reached_qf), reached_semifinal=pct(reached_sf),
+        reached_championship=pct(reached_champ), won_it_all=pct(won_title),
     )
+
+
+def consensus_field(
+    odds: BracketOdds, resume_rank: dict[str, int],
+    conference_of: dict[str, str],
+) -> list[PlayoffTeam]:
+    """The one concrete bracket the page shows, read back off the odds.
+
+    No individual simulated field is "the" projection -- they differ
+    trial to trial. So: the 12 teams most often in the field, the four of
+    those most often holding a bye take seeds 1-4, everyone else is slotted
+    by Resume rank (as in `select_field`). `champion` marks teams that
+    were in the field as a conference champion at least as often as as an
+    at-large pick.
+
+    Ties on percentages fall back to Resume rank, so the result is stable.
+    """
+    in_field = sorted(odds.made_field,
+                      key=lambda t: (-odds.made_field[t], resume_rank[t]))[:FIELD_SIZE]
+    byes = sorted(sorted(in_field, key=lambda t: -odds.bye[t])[:BYE_SEEDS],
+                  key=lambda t: resume_rank[t])
+    rest = sorted((t for t in in_field if t not in byes), key=lambda t: resume_rank[t])
+    return [
+        PlayoffTeam(seed=i, team=team, conference=conference_of.get(team, ""),
+                    rank=resume_rank[team],
+                    champion=odds.auto_bid[team] * 2 >= odds.made_field[team])
+        for i, team in enumerate(byes + rest, 1)
+    ]

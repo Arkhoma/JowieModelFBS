@@ -8,7 +8,8 @@
   <div>
     <h2 class="page-title text-3xl sm:text-4xl">{{ season }} Playoff Projection</h2>
     <p class="text-sm text-muted mt-1">
-      12-team field, seeded by Resume rank. Round odds from 2,000 simulated brackets.
+      12-team field, seeded by Resume rank. A fresh field is built for each of
+      2,000 simulated seasons, so every percentage below counts how often it happens.
     </p>
   </div>
   {% call(s) season_menu() %}{{ playoff_url(s) }}{% endcall %}
@@ -27,13 +28,13 @@
 {% else %}
 
 <div class="mb-8">
-  <h3 class="page-title text-xl mb-3">Seeds 1&ndash;4: Bye to the Quarterfinals</h3>
+  <h3 class="page-title text-xl mb-3">Seeds 1&ndash;4: Most Likely Byes</h3>
   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
     {% for t in field if t.seed <= 4 %}
     <div class="retro-card p-3">
       <p class="text-xs text-muted uppercase tracking-wide">Seed {{ t.seed }}</p>
       <p class="font-bold">{{ team_link(t.team) }}</p>
-      <p class="text-xs text-muted">{{ t.conference }} champion</p>
+      <p class="text-xs text-muted">{{ t.conference }} &middot; {{ "%.0f"|format(odds.bye[t.team]) }}% to get a bye</p>
       <p class="text-xs text-muted mt-1">{{ "%.0f"|format(odds.won_it_all[t.team]) }}% to win it all</p>
     </div>
     {% endfor %}
@@ -62,12 +63,14 @@
 
 <div class="overflow-x-auto retro-card">
   <table class="stat-table w-full text-sm">
-    <caption class="sr-only">Full 12-team field with bracket odds</caption>
+    <caption class="sr-only">Projected 12-team bracket with playoff odds</caption>
     <thead>
       <tr>
         <th scope="col" class="pin-rank text-right px-3 py-2">Seed</th>
         <th scope="col" class="pin-team text-left px-3 py-2">Team</th>
-        <th scope="col" class="text-left px-3 py-2">Bid</th>
+        <th scope="col" class="text-right px-3 py-2">Make field</th>
+        <th scope="col" class="text-right px-3 py-2">Auto bid</th>
+        <th scope="col" class="text-right px-3 py-2">Bye</th>
         <th scope="col" class="text-right px-3 py-2">Reach QF</th>
         <th scope="col" class="text-right px-3 py-2">Reach SF</th>
         <th scope="col" class="text-right px-3 py-2">Reach Final</th>
@@ -82,7 +85,9 @@
           {{ team_link(t.team) }}
           <span class="block text-xs font-normal text-muted">{{ t.conference }}</span>
         </td>
-        <td class="px-3 py-2 text-xs">{{ "Auto bid" if t.champion else "At-large" }}</td>
+        <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.made_field[t.team]) }}%</td>
+        <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.auto_bid[t.team]) }}%</td>
+        <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.bye[t.team]) }}%</td>
         <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.reached_quarterfinal[t.team]) }}%</td>
         <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.reached_semifinal[t.team]) }}%</td>
         <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.reached_championship[t.team]) }}%</td>
@@ -93,12 +98,46 @@
   </table>
 </div>
 
+{% if bubble %}
+<div class="mt-8">
+  <h3 class="page-title text-xl mb-3">Also in the Mix</h3>
+  <div class="overflow-x-auto retro-card">
+    <table class="stat-table w-full text-sm">
+      <caption class="sr-only">Teams outside the projected bracket with at least a 5% chance of making the field</caption>
+      <thead>
+        <tr>
+          <th scope="col" class="text-left px-3 py-2">Team</th>
+          <th scope="col" class="text-right px-3 py-2">Make field</th>
+          <th scope="col" class="text-right px-3 py-2">Auto bid</th>
+          <th scope="col" class="text-right px-3 py-2">Win it all</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bubble %}
+        <tr class="border-t border-ink/20">
+          <td class="px-3 py-2 font-bold">
+            {{ team_link(b.team) }}
+            <span class="block text-xs font-normal text-muted">{{ b.conference }}</span>
+          </td>
+          <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(b.made_field) }}%</td>
+          <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(b.auto_bid) }}%</td>
+          <td class="text-right px-3 py-2 tabular-nums">{{ "%.1f"|format(b.won_it_all) }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <p class="text-xs text-muted mt-4">
   5 auto bids go to the highest-(Resume-rank)-ranked conference champions;
   the top 4 of those get the bye. The other 7 spots are at-large, filled
-  by rank regardless of conference. "Champion" is each conference's most
-  likely finisher from the Conference Races projection, not a guarantee --
-  this whole page updates as that does.
+  by rank regardless of conference. "Champion" means the best in-conference
+  record in a simulated season, so a wide-open conference sends different
+  teams in different seasons. The bracket above is the 12 teams most often
+  in the field; the odds already count every simulated season, including
+  the ones where someone not shown here gets in.
 </p>
 
 {% endif %}
