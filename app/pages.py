@@ -19,9 +19,12 @@ from urllib.parse import quote
 
 from markupsafe import Markup, escape
 
+from app.form_view import team_form_context
+from app.logo_view import conference_logo, logo_config, team_logo
 from cfbrank.games import (
     available_seasons, fbs_seasons, fbs_teams, load_season, season_teams,
 )
+from cfbrank.logos import team_logo_id
 from cfbrank.playoff import FIRST_ROUND
 from cfbrank.time_machine import season_snapshot
 
@@ -62,13 +65,26 @@ SORTS = {"predictive": _rank_key("rank"), "resume": _rank_key("resume_rank"),
 
 # --- Team links: every team name on the site goes through these. -------
 
-def team_link(team: str, season: int, urls: SiteUrls) -> Markup:
-    """Link to `team`'s page for `season` -- or plain text if it wasn't
-    FBS that season (FCS opponents have no page; no dead links)."""
-    if team not in fbs_teams(season):
-        return escape(team)
-    return Markup('<a href="{}" class="team-link">{}</a>').format(
-        urls.team(team, season), team)
+def team_link(team: str, season: int, urls: SiteUrls, size: str | None = "sm",
+              lead: str = "") -> Markup:
+    """A team's name, linked to its page for `season` -- or plain text if it
+    wasn't FBS that season (FCS opponents have no page; no dead links).
+
+    With a `size` the name comes as a chip: logo first, then `lead` (a
+    rank like "#4", or "vs"/"at"), then the name. The logo slot is always
+    there, so names line up whether or not a logo exists. `size=None` is
+    the bare name, for running text where a logo would break the line."""
+    if team in fbs_teams(season):
+        name = Markup('<a href="{}" class="team-link">{}</a>').format(
+            urls.team(team, season), team)
+    else:
+        name = escape(team)
+    if size is None:
+        return name
+    lead_html = (Markup('<span class="team-lead">{}</span>').format(lead)
+                 if lead else Markup(""))
+    return Markup('<span class="team-chip">{}{}{}</span>').format(
+        team_logo(team, size), lead_html, name)
 
 
 @lru_cache(maxsize=None)
@@ -80,24 +96,31 @@ def _team_pattern(season: int) -> re.Pattern:
 
 def link_teams(text: str, season: int, urls: SiteUrls) -> Markup:
     """Escape free text ("Best game: W 35-10 vs Georgia") and link every
-    FBS team named in it."""
+    FBS team named in it. Names only, no logos: this is running text."""
     parts, last = [], 0
     for match in _team_pattern(season).finditer(text):
         parts += [escape(text[last:match.start()]),
-                  team_link(match.group(1), season, urls)]
+                  team_link(match.group(1), season, urls, size=None)]
         last = match.end()
     parts.append(escape(text[last:]))
     return Markup("").join(parts)
 
 
+def logo_ids(names) -> dict[str, int]:
+    """{team: CFBD logo id} for the pages whose JavaScript draws team names
+    itself (Predict, Time Machine). Teams without a logo are left out."""
+    return {n: i for n in names if (i := team_logo_id(n)) is not None}
+
+
 def team_index(urls: SiteUrls) -> dict:
-    """{team: {"c": latest conference, "u": {season: page url}}} for every
-    team that was ever FBS. Backs the header search and the team links in
-    JS-rendered results; schedule-only, so it never fits a model."""
+    """{team: {"c": latest conference, "l": logo id, "u": {season: page url}}}
+    for every team that was ever FBS. Backs the header search and the team
+    links in JS-rendered results; schedule-only, so it never fits a model."""
     index: dict[str, dict] = {}
     for season in available_seasons():          # oldest first: latest conf wins
         for team, conf in season_teams(season).items():
-            entry = index.setdefault(team, {"c": conf, "u": {}})
+            entry = index.setdefault(
+                team, {"c": conf, "l": team_logo_id(team), "u": {}})
             entry["c"] = conf or entry["c"]
             entry["u"][str(season)] = urls.team(team, season)
     return index
@@ -135,8 +158,13 @@ def base_context(active_tab: str, season: int, urls: SiteUrls = LIVE_URLS,
         "predict_url": urls.predict,
         "playoff_url": urls.playoff,
         "conferences_url": urls.conferences,
-        "team_link": lambda team, s=season: team_link(team, s, urls),
+        "team_link": lambda team, s=season, size="sm", lead="": team_link(
+            team, s, urls, size, lead),
         "link_teams": lambda text, s=season: link_teams(text, s, urls),
+        "team_logo": team_logo,
+        "conference_logo": conference_logo,
+        # Read by search.js so JS-drawn logos use the same CDN and sizes.
+        "logo_config": logo_config(),
         "data_through": _data_through(),
         **extra,
     }
@@ -190,13 +218,16 @@ def team_context(data, team: str) -> dict:
         "team": team,
         "row": row,
         "team_seasons": fbs_seasons(team),
+        "form": team_form_context(data.form, team) if row else None,
         "game_log": (team_game_log(team, data.games, data.remaining,
                                    data.predictor) if row else []),
     }
 
 
 def predict_context(data) -> dict:
-    return {"teams": predict_teams(data), "prediction": None}
+    teams = predict_teams(data)
+    return {"teams": teams, "prediction": None,
+            "logo_ids": logo_ids(t["name"] for t in teams)}
 
 
 def time_machine_context(get_season) -> dict:
@@ -218,6 +249,7 @@ def time_machine_context(get_season) -> dict:
         # Everyone who was ever FBS; latest conference wins.
         "teams": [{"name": t, "conference": c}
                   for t, c in sorted(conference.items())],
+        "logo_ids": logo_ids(conference),
     }
 
 

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_season_menu.html" import season_menu with context %}
-{% from "_team_picker.html" import team_picker %}
+{% from "_team_picker.html" import team_picker with context %}
 {% block title %}Predict a Game {{ season }} | JowieModel FBS{% endblock %}
 
 {% block content %}
@@ -44,6 +44,7 @@
 
 {% if static_build %}
 <script type="application/json" id="model-data">{{ model_json | tojson }}</script>
+<script type="application/json" id="team-logos">{{ logo_ids | tojson }}</script>
 <script src="{{ nav.static }}/predict.js" defer></script>
 {% else %}
 {# Only the live form posts via htmx; no other page loads it. #}

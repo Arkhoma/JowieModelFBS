@@ -5,11 +5,14 @@
 {% block content %}
 
 <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
-  <div>
-    <h2 class="page-title text-3xl sm:text-4xl">{{ team }}</h2>
-    {% if row %}
-    <p class="text-sm text-muted mt-1">{{ row.conference }} &middot; {{ season }}</p>
-    {% endif %}
+  <div class="flex items-center gap-4">
+    {{ team_logo(team, "lg") }}
+    <div>
+      <h2 class="page-title text-3xl sm:text-4xl">{{ team }}</h2>
+      {% if row %}
+      <p class="text-sm text-muted mt-1">{{ row.conference }} &middot; {{ season }}</p>
+      {% endif %}
+    </div>
   </div>
   <div class="flex flex-wrap items-center gap-2">
     {% call(s) season_menu(only=team_seasons) %}{{ team_url(team, s) }}{% endcall %}
@@ -57,6 +60,109 @@
 </section>
 {% endif %}
 
+{% if form %}
+<section aria-labelledby="form" class="retro-card p-4 mb-8">
+  <h3 id="form" class="section-title text-xl mb-2">Form</h3>
+  <p class="form-headline{% if form.moving %} form-headline-moving{% endif %}">{{ form.headline }}</p>
+  {% if form.shifts %}
+  <ul class="list-disc pl-5 space-y-1 text-sm mt-2">
+    {% for line in form.shifts %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+  <p class="text-xs text-muted mt-2">
+    Check the bars before trusting this: one big game can carry a flag. If most of the
+    bars after the dashed line sit inside the shaded band, the break rests on a game
+    or two.
+  </p>
+  {% endif %}
+
+  <div class="form-grid mt-4">
+    {% for c in form.charts %}
+    <figure>
+      <figcaption class="eyebrow mb-1">{{ c.title }} {{ c.stat }}: actual minus expected</figcaption>
+      <svg class="form-chart" viewBox="0 0 {{ c.width }} {{ c.height }}" role="img"
+           aria-labelledby="form-chart-{{ loop.index }}">
+        <title id="form-chart-{{ loop.index }}">{{ c.title }} {{ c.stat }}, {{ c.summary }}{% if c.marker %} Dashed line marks the break, {{ c.marker.label }}.{% endif %}</title>
+        <rect class="form-band" x="{{ c.plot_left }}" y="{{ c.band_y }}"
+              width="{{ c.plot_right - c.plot_left }}" height="{{ c.band_h }}"/>
+        <line class="form-zero" x1="{{ c.plot_left }}" x2="{{ c.plot_right }}"
+              y1="{{ c.zero_y }}" y2="{{ c.zero_y }}"/>
+        {% for t in c.ticks %}
+        <text class="form-tick" x="{{ c.plot_left - 6 }}" y="{{ t.y }}"
+              text-anchor="end" dominant-baseline="middle">{{ t.label }}</text>
+        {% endfor %}
+        {% for b in c.bars %}
+        <rect class="{{ 'form-up' if b.up else 'form-down' }}" x="{{ b.x }}" y="{{ b.y }}"
+              width="{{ b.w }}" height="{{ b.h }}"><title>{{ b.tip }}</title></rect>
+        <text class="form-tick" x="{{ b.label_x }}" y="{{ c.label_y }}"
+              text-anchor="middle">{{ b.week }}</text>
+        {% endfor %}
+        {% if c.marker %}
+        <line class="form-break" x1="{{ c.marker.x }}" x2="{{ c.marker.x }}"
+              y1="{{ c.marker.y1 }}" y2="{{ c.marker.y2 }}"/>
+        <text class="form-break-label" x="{{ c.marker.label_x }}" y="{{ c.marker.label_y }}"
+              text-anchor="{{ c.marker.anchor }}">{{ c.marker.label }}</text>
+        {% endif %}
+      </svg>
+      <p class="text-xs text-muted mt-1">{{ c.summary }}</p>
+    </figure>
+    {% endfor %}
+  </div>
+
+  <p class="text-xs text-muted mt-3">
+    Bars show how far each game landed from what the model expected using only
+    earlier games; the numbers along the bottom are weeks. The shaded band is one
+    typical miss, and when a team is flagged each chart uses the statistic that
+    triggered the flag, with a dashed line where the break falls. A single game
+    routinely lands {{ form.noise }} points either way{% if form.noise_success %}
+    (or about {{ form.noise_success }} success-rate points){% endif %},
+    so one blowout means little. A team is flagged only when its games split into a
+    before and an after that differ by z&nbsp;&ge;&nbsp;{{ form.flag_z }}, a
+    bar that only about 1 team-season in 100 clears for each test. Most teams,
+    including ones that <em>feel</em> different, will read as steady. This section
+    is context only: it never changes a rating or a prediction.
+  </p>
+
+  <details class="mt-3">
+    <summary class="text-sm cursor-pointer">Show the numbers</summary>
+    <div class="overflow-x-auto mt-2">
+      <table class="stat-table w-full text-sm">
+        <caption class="sr-only">{{ team }}'s offense and defense versus expectation, by game</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="text-right px-3 py-2">Wk</th>
+            <th scope="col" class="text-left px-3 py-2">Opponent</th>
+            <th scope="col" class="text-right px-3 py-2">Scored</th>
+            <th scope="col" class="text-right px-3 py-2">Expected</th>
+            <th scope="col" class="text-right px-3 py-2">Offense</th>
+            <th scope="col" class="text-right px-3 py-2">Defense</th>
+            {% if form.has_success %}
+            <th scope="col" class="text-right px-3 py-2">Off. success</th>
+            <th scope="col" class="text-right px-3 py-2">Def. success</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in form.rows %}
+          <tr class="border-t border-ink/20">
+            <td class="text-right px-3 py-2 tabular-nums">{{ g.week }}</td>
+            <td class="px-3 py-2">{{ team_link(g.opponent) }}</td>
+            <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(g.scored) }}</td>
+            <td class="text-right px-3 py-2 tabular-nums">{{ "%.1f"|format(g.expected) }}</td>
+            <td class="text-right px-3 py-2 tabular-nums">{{ "%+.1f"|format(g.off_miss) }}</td>
+            <td class="text-right px-3 py-2 tabular-nums">{% if g.def_miss is none %}&mdash;{% else %}{{ "%+.1f"|format(g.def_miss) }}{% endif %}</td>
+            {% if form.has_success %}
+            <td class="text-right px-3 py-2 tabular-nums">{% if g.off_success is none %}&mdash;{% else %}{{ "%+.1f"|format(g.off_success) }}{% endif %}</td>
+            <td class="text-right px-3 py-2 tabular-nums">{% if g.def_success is none %}&mdash;{% else %}{{ "%+.1f"|format(g.def_success) }}{% endif %}</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+{% endif %}
+
 <div class="overflow-x-auto retro-card">
   <table class="stat-table w-full text-sm">
     <caption class="sr-only">{{ team }}'s {{ season }} schedule</caption>
@@ -73,9 +179,8 @@
       <tr class="border-t border-ink/20">
         <td class="text-right px-3 py-2 tabular-nums">{{ g.week }}</td>
         <td class="px-3 py-2">
-          {% if g.location == "neutral" %}vs {{ team_link(g.opponent) }} <span class="text-xs text-muted">(neutral)</span>
-          {% elif g.location == "at" %}at {{ team_link(g.opponent) }}
-          {% else %}vs {{ team_link(g.opponent) }}{% endif %}
+          {{ team_link(g.opponent, lead="at" if g.location == "at" else "vs") }}
+          {% if g.location == "neutral" %}<span class="text-xs text-muted">(neutral)</span>{% endif %}
         </td>
         <td class="text-right px-3 py-2 tabular-nums font-bold">
           {{ g.result if g.played else "\u2014" }}

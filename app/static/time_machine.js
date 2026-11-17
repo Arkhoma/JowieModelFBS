@@ -27,10 +27,11 @@
              scoreA: (total + margin) / 2, scoreB: (total - margin) / 2 };
   }
 
-  // esc() and linkTeams() come from search.js.
+  // esc(), teamLogo() and linkTeams() come from search.js.
   const fmtSigned = (n) => (n >= 0 ? "+" : "") + n.toFixed(1);
   const teamSpan = (s) =>
-    `${s.year} <span data-team="${esc(s.team)}" data-season="${s.year}">${esc(s.team)}</span>`;
+    `<span class="team-chip">${teamLogo(s.team, "sm")}<span>${s.year} `
+    + `<span data-team="${esc(s.team)}" data-season="${s.year}">${esc(s.team)}</span></span></span>`;
 
   function render(A, B, m) {
     const pctA = Math.round(m.winA * 100);
@@ -51,11 +52,13 @@
           <div class="text-xs uppercase tracking-[0.3em] text-center mb-3 opacity-80">Neutral field &middot; never played</div>
           <div class="flex items-center justify-between gap-4">
             <div class="text-right flex-1">
+              <div class="mb-1">${teamLogo(A.team, "md", true)}</div>
               <div class="text-sm uppercase tracking-wider">${esc(A.name)}</div>
               <div class="text-4xl sm:text-5xl font-bold tabular-nums">${Math.round(m.scoreA)}</div>
             </div>
             <div class="text-sm opacity-70">VS</div>
             <div class="flex-1">
+              <div class="mb-1">${teamLogo(B.team, "md", true)}</div>
               <div class="text-sm uppercase tracking-wider">${esc(B.name)}</div>
               <div class="text-4xl sm:text-5xl font-bold tabular-nums">${Math.round(m.scoreB)}</div>
             </div>

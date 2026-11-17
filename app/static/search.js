@@ -3,11 +3,14 @@
 //
 //   matchScore(name, conference, q)  team-search ranking (header + pickers)
 //   esc(s)                           HTML-escape for innerHTML templates
+//   logoSlot(id, size, dark)         a team's logo in its fixed-size slot
+//   teamLogo(team, size, dark)       same, looked up by team name
+//   teamChip(team, season, size)     logo + name span that linkTeams() links
 //   teamIndex()                      search-index.json, fetched once, lazily
 //   linkTeams(root)                  turn <span data-team data-season> into links
 //
 // Plus the header search box itself. search-index.json is
-// {team: {c: conference, u: {season: page url}}}, built by
+// {team: {c: conference, l: logo id, u: {season: page url}}}, built by
 // app.pages.team_index -- the only place JS learns team URLs, so live
 // and static sites never need a JS copy of the URL scheme.
 
@@ -33,6 +36,47 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   })[c]);
+}
+
+// Logos. The CDN template and file sizes come from the server
+// (app.pages.base_context -> .site-search[data-logo]), so this file never
+// names a CDN. logoSlot mirrors app/logo_view.logo_slot: same classes, and
+// the slot is drawn even with no logo, so rows line up and nothing jumps.
+const logoConfig = (() => {
+  const el = document.querySelector(".site-search");
+  return el && el.dataset.logo ? JSON.parse(el.dataset.logo) : null;
+})();
+
+// {team: logo id} for pages that draw team names in JS (Predict, Time
+// Machine); those pages embed it as #team-logos.
+const teamLogoIds = (() => {
+  const el = document.getElementById("team-logos");
+  return el ? JSON.parse(el.textContent) : {};
+})();
+
+function logoSlot(id, size, dark = false) {
+  const hasLogo = logoConfig && id !== null && id !== undefined;
+  const url = hasLogo
+    ? logoConfig.template
+        .replace("{variant}", dark ? logoConfig.dark : logoConfig.light)
+        .replace("{size}", logoConfig.files[size])
+        .replace("{id}", id)
+    : "";
+  const flipped = hasLogo && logoConfig.flipped.includes(id) ? ' class="logo-flipped"' : "";
+  const img = url
+    ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async"${flipped}>` : "";
+  return `<span class="logo-slot logo-${size}" aria-hidden="true">${img}</span>`;
+}
+
+// A team's logo slot looked up by name (pages that embed #team-logos).
+// `dark` picks the artwork meant for dark backgrounds (the scoreboard).
+const teamLogo = (team, size, dark = false) => logoSlot(teamLogoIds[team], size, dark);
+
+// Logo + name, for team names JS prints. The name span is what linkTeams()
+// swaps for a link once the index loads.
+function teamChip(team, season, size = "sm") {
+  return `<span class="team-chip">${teamLogo(team, size)}`
+    + `<span data-team="${esc(team)}" data-season="${season}">${esc(team)}</span></span>`;
 }
 
 const teamIndex = (() => {
@@ -84,7 +128,7 @@ function linkTeams(root) {
       .map(([name, e]) => {
         const seasons = Object.keys(e.u);       // integer-like keys: ascending
         const season = year ? (e.u[year] ? year : null) : seasons[seasons.length - 1];
-        return { name, conf: e.c || "", season, url: season && e.u[season],
+        return { name, conf: e.c || "", season, logo: e.l, url: season && e.u[season],
                  score: season ? matchScore(name.toLowerCase(), (e.c || "").toLowerCase(), q) : null };
       })
       .filter((r) => r.score !== null)
@@ -111,7 +155,7 @@ function linkTeams(root) {
     list.innerHTML = results.map((r, i) => `
       <li role="option" id="site-search-opt-${i}" aria-selected="false"
           class="px-3 py-3 cursor-pointer flex justify-between gap-3 hover:bg-paper">
-        <span class="font-semibold">${esc(r.name)}</span>
+        <span class="team-chip">${logoSlot(r.logo, "sm")}<span class="font-semibold">${esc(r.name)}</span></span>
         <span class="text-xs text-muted whitespace-nowrap">${esc(r.conf)}${r.conf ? " &middot; " : ""}${r.season}</span>
       </li>`).join("");
     const typed = input.value.trim() !== "";

@@ -19,13 +19,14 @@ sys.path.insert(0, str(ROOT / "tools"))
 from app.main import get_season  # noqa: E402
 from app.pages import (  # noqa: E402
     LIVE_URLS, SiteUrls, base_context, conference_spread, conferences_context,
-    link_teams,
+    link_teams, logo_ids,
     playoff_context, predict_context, rankings_context, team_context,
     team_index, team_link,
 )
 from build_static_site import STATIC_URLS, _env, _latest  # noqa: E402
 from check_static_links import broken_links  # noqa: E402
 from cfbrank.games import available_seasons, fbs_seasons, fbs_teams  # noqa: E402
+from cfbrank.logos import team_logo_id  # noqa: E402
 from cfbrank.time_machine import season_snapshot  # noqa: E402
 
 SEASON = 2026
@@ -91,6 +92,31 @@ def test_team_page_menu_lists_only_that_teams_fbs_seasons(data):
     assert "team-sam-houston-2022.html" not in links
 
 
+def test_team_page_renders_the_form_section_from_real_games(data):
+    # A steady team (its points charts are the default), whoever that is this week.
+    team = next(t for t, f in data.form.teams.items()
+                if not f.shifts and len(f.games) >= 4)
+    html = _render("team.html", "rankings", data, **team_context(data, team))
+    games = data.form.teams[team].games
+    bars = html.count('class="form-up"') + html.count('class="form-down"')
+    assert 'id="form"' in html
+    assert html.count('<svg class="form-chart"') == 2
+    assert "form-break" not in html
+    # one offense bar per game, one defense bar per game with a fitted opponent
+    assert bars == len(games) + sum(g.def_miss is not None for g in games)
+    assert "never changes a rating or a prediction" in html
+
+
+def test_a_flagged_teams_page_marks_the_break_and_names_the_statistic(data):
+    flagged = [t for t, f in data.form.teams.items() if f.shifts]
+    if not flagged:
+        pytest.skip("no team is flagged in this season's data right now")
+    html = _render("team.html", "rankings", data, **team_context(data, flagged[0]))
+    assert "Worth a look" in html
+    assert 'class="form-break"' in html
+    assert "Dashed line marks the break" in html
+
+
 def test_nav_tabs_keep_the_season_being_viewed(data):
     """Browsing 2026 vs browsing an older season: the tabs follow."""
     html = _render("playoff.html", "playoff", data, **playoff_context(data))
@@ -109,17 +135,122 @@ def test_time_machine_page_renders_pickers_and_data(data):
     teams = [{"name": r["team"], "conference": r["conference"]}
              for r in data.rankings]
     html = _render("time_machine.html", "predict", data,
-                   snapshots={str(SEASON): snap}, teams=teams)
+                   snapshots={str(SEASON): snap}, teams=teams,
+                   logo_ids=logo_ids(t["name"] for t in teams))
     assert 'id="a_team"' in html and 'id="b_season"' in html
     assert html.count('role="option"') == 2 * len(teams)
     assert '<option value="2019" selected>' in html       # 2019 LSU default
     assert 'id="snapshots"' in html and "time_machine.js" in html
+    assert 'id="team-logos"' in html                      # JS draws logos from this
     assert "Vegas Script" not in html
 
 
+# --- Logos everywhere a team name appears --------------------------------
+
+def test_every_rankings_row_has_a_logo_slot(data):
+    html = _render("rankings.html", "rankings", data, **rankings_context(data, "predictive"))
+    assert html.count('class="team-chip"><span class="logo-slot logo-sm"') >= len(data.rankings)
+    assert "data-logo='" in html                    # search.js reads the CDN from here
+
+
+def test_team_page_header_has_a_large_logo(data):
+    html = _render("team.html", "rankings", data, **team_context(data, "Ohio State"))
+    assert 'class="logo-slot logo-lg"' in html
+    assert "/logos/128/" in html
+
+
+def test_conference_page_shows_conference_logos(data):
+    html = _render("conferences.html", "conferences", data, **conferences_context(data))
+    assert html.count("espncdn.com/i/teamlogos/ncaa_conf/") >= len(data.conference_races)
+    assert 'class="section-title conf-name' in html
+
+
+def test_team_pickers_put_a_logo_on_every_option_and_in_the_field(data):
+    html = _render("predict.html", "predict", data, **predict_context(data))
+    options = re.findall(r'<li id="[^"]+" role="option".*?</li>', html, re.S)
+    assert options and all('class="logo-slot logo-sm"' in o for o in options)
+    assert html.count("data-combo-logo") == 2                    # away + home fields
+    assert html.count("combo-field") == 2
+
+
+def test_static_predict_page_embeds_logo_ids_for_its_js(data):
+    html = _render("predict.html", "predict", data, static_build=True, model_json={},
+                   **predict_context(data))
+    ids = re.search(r'id="team-logos">(.*?)</script>', html, re.S).group(1)
+    assert f'"Ohio State": {team_logo_id("Ohio State")}' in ids
+
+
+def test_prediction_result_shows_both_teams_logos_on_the_scoreboard(data):
+    prediction = data.predictor.predict("Ohio State", "Michigan", False)
+    html = _render("_prediction_result.html", "predict", data,
+                   prediction=prediction, error=None)
+    assert html.count('class="logo-slot logo-md"') == 2
+    assert "logos-dark/" in html                  # artwork meant for the dark scoreboard
+    assert "logo-xs" not in html                   # no logos in the "At ..." / "by" lines
+
+
+def test_filtered_out_picker_options_really_disappear():
+    """Options are `.flex`; without this rule that beats [hidden] and the
+    filter only reorders the list instead of narrowing it."""
+    css = (ROOT / "app" / "static" / "retro.css").read_text(encoding="utf-8")
+    assert ".combo-list [hidden] { display: none; }" in css
+
+
 def test_team_link_links_fbs_and_leaves_fcs_as_text():
-    assert 'href="team-ohio-state.html"' in team_link("Ohio State", SEASON, STATIC_URLS)
-    assert team_link("Montana State", SEASON, STATIC_URLS) == "Montana State"
+    fbs = str(team_link("Ohio State", SEASON, STATIC_URLS))
+    assert 'href="team-ohio-state.html"' in fbs
+    fcs = str(team_link("Montana State", SEASON, STATIC_URLS))
+    assert "<a " not in fcs and "Montana State" in fcs      # no page, no dead link
+
+
+def test_every_team_name_comes_with_a_logo_slot():
+    """FBS or not, linked or not: the fixed-size slot is always there."""
+    for team in ("Ohio State", "Montana State", "Nowhere Tech"):
+        html = str(team_link(team, SEASON, STATIC_URLS))
+        assert html.startswith('<span class="team-chip"><span class="logo-slot logo-sm"')
+    assert "cdn.collegefootballdata.com/logos/64/" in str(
+        team_link("Ohio State", SEASON, STATIC_URLS))
+    assert "<img" not in str(team_link("Nowhere Tech", SEASON, STATIC_URLS))
+
+
+def test_running_text_gets_linked_names_but_no_logos():
+    html = str(link_teams("Best win: Texas", SEASON, STATIC_URLS))
+    assert "logo-slot" not in html and "<img" not in html
+    assert 'href="team-texas.html" class="team-link">Texas</a>' in html
+
+
+def test_a_lead_sits_between_the_logo_and_the_name():
+    """Rank / vs / at follow the logo, so the logo always starts the line."""
+    html = str(team_link("Ohio State", SEASON, STATIC_URLS, lead="#4"))
+    assert html.index("logo-slot") < html.index("team-lead") < html.index("team-link")
+    assert '<span class="team-lead">#4</span>' in html
+
+
+def test_size_none_is_the_bare_link():
+    html = str(team_link("Ohio State", SEASON, STATIC_URLS, size=None))
+    assert html.startswith("<a ") and "team-chip" not in html
+    assert str(team_link("Montana State", SEASON, STATIC_URLS, size=None)) == "Montana State"
+
+
+def test_texas_logo_is_upside_down_but_texas_am_is_not():
+    texas = str(team_link("Texas", SEASON, STATIC_URLS))
+    assert 'class="logo-flipped"' in texas
+    assert 'class="logo-flipped"' not in str(team_link("Texas A&M", SEASON, STATIC_URLS))
+    assert 'class="logo-flipped"' not in str(team_link("Oklahoma", SEASON, STATIC_URLS))
+
+
+def test_playoff_and_schedule_rows_put_rank_and_vs_after_the_logo(data):
+    playoff = _render("playoff.html", "playoff", data, **playoff_context(data))
+    assert re.search(r'logo-slot logo-sm.*?team-lead">#\d+</span>', playoff, re.S)
+    assert not re.search(r'#\d+ <span class="team-chip"', playoff)
+    team = _render("team.html", "rankings", data, **team_context(data, "Ohio State"))
+    assert not re.search(r'(?:vs|at) <span class="team-chip"', team)
+
+
+def test_search_index_carries_each_teams_logo_id():
+    index = team_index(STATIC_URLS)
+    assert isinstance(index["Ohio State"]["l"], int)
+    assert index["Ohio State"]["l"] == team_logo_id("Ohio State")
 
 
 def test_link_teams_prefers_the_longest_name_and_escapes():

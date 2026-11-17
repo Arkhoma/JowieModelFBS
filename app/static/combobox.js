@@ -10,7 +10,19 @@
     const toggle = root.querySelector("button");
     const status = root.querySelector("[role=status]");
     const options = Array.from(list.children);  // server order = model rank
+    const fieldSlot = root.querySelector("[data-combo-logo] .logo-slot");
     let active = -1;
+
+    // The field shows the chosen team's logo whenever the text names a team
+    // exactly (copied from that team's option, so there is one source of
+    // truth); anything else leaves the slot empty but present.
+    function syncLogo() {
+      if (!fieldSlot) return;
+      const typed = input.value.trim().toLowerCase();
+      const match = options.find(o => o.dataset.value.toLowerCase() === typed);
+      const slot = match && match.querySelector(".logo-slot");
+      fieldSlot.innerHTML = slot ? slot.innerHTML : "";
+    }
 
     // DOM order is the visual order, so reordering nodes keeps arrow keys,
     // aria-activedescendant and what the user sees in agreement.
@@ -44,6 +56,7 @@
       status.textContent = n ? `${n} team${n === 1 ? "" : "s"}` : "No matching teams";
       open(true);
       setActive(n ? 0 : -1);
+      syncLogo();
     }
 
     function showAll() {
@@ -52,11 +65,14 @@
 
     function pick(option) {
       input.value = option.dataset.value;
+      syncLogo();
       open(false);
       input.focus();
     }
 
     input.addEventListener("input", filter);
+    // Fired by code that sets the value directly (the swap button).
+    input.addEventListener("combo-sync", syncLogo);
     input.addEventListener("keydown", e => {
       const n = visible().length;
       if (e.key === "ArrowDown") {
@@ -98,5 +114,6 @@
     const home = document.getElementById("home_team");
     const away = document.getElementById("away_team");
     [home.value, away.value] = [away.value, home.value];
+    [home, away].forEach(i => i.dispatchEvent(new Event("combo-sync")));
   });
 })();

@@ -45,7 +45,7 @@
     {% for s in spread %}
     <li class="py-2 border-t border-line first:border-0">
       <div class="flex justify-between gap-2 text-sm">
-        <span class="font-bold">{{ s.conference }}</span>
+        <span class="font-bold conf-name conf-chip">{{ conference_logo(s.conference, "sm") }}{{ s.conference }}</span>
         <span class="text-xs text-muted">{{ s.teams }} teams</span>
       </div>
       <div class="spread-track" aria-hidden="true">
@@ -75,7 +75,7 @@
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {% for conf, standings in conference_races.items()|sort %}
   <section class="retro-card p-4" aria-labelledby="conf-{{ loop.index }}">
-    <h3 id="conf-{{ loop.index }}" class="section-title text-sm mb-1">{{ conf }}</h3>
+    <h3 id="conf-{{ loop.index }}" class="section-title conf-name text-sm mb-2 flex items-center gap-2">{{ conference_logo(conf, "md") }}{{ conf }}</h3>
     <ul>
       {% for team, pct in standings[:4] %}{{ race_row(team, pct) }}{% endfor %}
     </ul>

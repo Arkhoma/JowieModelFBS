@@ -33,7 +33,7 @@
     {% for t in field if t.seed <= 4 %}
     <div class="retro-card p-3">
       <p class="text-xs text-muted uppercase tracking-wide">Seed {{ t.seed }}</p>
-      <p class="font-bold">{{ team_link(t.team) }}</p>
+      <p class="font-bold">{{ team_link(t.team, size="md") }}</p>
       <p class="text-xs text-muted">{{ t.conference or "Independent" }} &middot; {{ "%.0f"|format(odds.bye[t.team]) }}% to get a bye</p>
       <p class="text-xs text-muted mt-1">{{ "%.0f"|format(odds.won_it_all[t.team]) }}% to win it all</p>
     </div>
@@ -47,12 +47,12 @@
     {% for m in first_round %}
     <div class="retro-card p-3">
       <p class="text-sm">
-        <span class="font-bold">#{{ m.home.seed }} {{ team_link(m.home.team) }}</span>
+        <span class="font-bold">{{ team_link(m.home.team, lead="#%d"|format(m.home.seed)) }}</span>
         <span class="text-muted">({{ "%.0f"|format(m.home_win_probability * 100) }}%)</span>
       </p>
       <p class="text-xs text-muted my-1">vs</p>
       <p class="text-sm">
-        <span class="font-bold">#{{ m.away.seed }} {{ team_link(m.away.team) }}</span>
+        <span class="font-bold">{{ team_link(m.away.team, lead="#%d"|format(m.away.seed)) }}</span>
         <span class="text-muted">({{ "%.0f"|format((1 - m.home_win_probability) * 100) }}%)</span>
       </p>
     </div>
@@ -83,7 +83,7 @@
         <td class="pin-rank text-right px-3 py-2 tabular-nums font-bold">{{ t.seed }}</td>
         <td class="pin-team px-3 py-2 font-bold">
           {{ team_link(t.team) }}
-          <span class="block text-xs font-normal text-muted">{{ t.conference or "Independent" }}</span>
+          <span class="block text-xs font-normal text-muted team-sub">{{ t.conference or "Independent" }}</span>
         </td>
         <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.made_field[t.team]) }}%</td>
         <td class="text-right px-3 py-2 tabular-nums">{{ "%.0f"|format(odds.auto_bid[t.team]) }}%</td>

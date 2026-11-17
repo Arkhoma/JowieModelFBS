@@ -20,6 +20,7 @@ from fastapi.templating import Jinja2Templates
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from cfbrank.ensemble import EFFICIENCY_METRIC, EnsembleModel  # noqa: E402
+from cfbrank.form import season_form  # noqa: E402
 from cfbrank.epa_ridge import (  # noqa: E402
     build_epa_games, fit_epa_ratings_primed, get_ep_model,
 )
@@ -87,7 +88,7 @@ class SeasonModel:
     remaining: list = None
     playoff_field: list = None
     playoff_odds: object = None
-
+    form: object = None          # cfbrank.form.SeasonForm, or None (pre-2018)
 
 def _build_epa_model(season: int, games, margin_prior):
     """Efficiency ratings for one season, or None if unavailable.
@@ -243,6 +244,7 @@ def get_season(season: int) -> SeasonModel:
         remaining=remaining,
         playoff_field=playoff_field,
         playoff_odds=playoff_odds,
+        form=season_form(season),
     )
 
 

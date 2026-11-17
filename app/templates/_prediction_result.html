@@ -13,11 +13,13 @@
 
     <div class="flex items-center justify-between gap-4">
       <div class="text-right flex-1">
+        <div class="mb-1">{{ team_logo(prediction.away_team, "md", dark=True) }}</div>
         <div class="text-sm uppercase tracking-wider">{{ prediction.away_team }}</div>
         <div class="text-4xl sm:text-5xl font-bold tabular-nums">{{ "%.0f"|format(prediction.away_score) }}</div>
       </div>
       <div class="text-sm opacity-70">AT</div>
       <div class="flex-1">
+        <div class="mb-1">{{ team_logo(prediction.home_team, "md", dark=True) }}</div>
         <div class="text-sm uppercase tracking-wider">{{ prediction.home_team }}</div>
         <div class="text-4xl sm:text-5xl font-bold tabular-nums">{{ "%.0f"|format(prediction.home_score) }}</div>
       </div>

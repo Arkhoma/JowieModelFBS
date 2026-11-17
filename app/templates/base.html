@@ -34,7 +34,7 @@
       </a>
 
       <div class="site-search order-2 w-full sm:w-72 lg:order-3 lg:w-60 relative"
-           data-index="{{ nav.search_index }}">
+           data-index="{{ nav.search_index }}" data-logo='{{ logo_config | tojson }}'>
         <label for="site-search" class="sr-only">Find any team, any season</label>
         <input id="site-search" type="search" role="combobox" autocomplete="off"
                aria-autocomplete="list" aria-expanded="false" aria-controls="site-search-list"

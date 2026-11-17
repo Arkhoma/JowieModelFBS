@@ -100,7 +100,7 @@
   // esc() comes from search.js. Team names render as data-team spans;
   // linkTeams() (also search.js) upgrades them to team-page links.
   const season = form.elements.season.value;
-  const teamSpan = (t) => `<span data-team="${esc(t)}" data-season="${season}">${esc(t)}</span>`;
+  const teamSpan = (t) => teamChip(t, season);
 
   function fmt(n, digits) { return n.toFixed(digits); }
   function fmtSigned(n, digits) { return (n >= 0 ? "+" : "") + n.toFixed(digits); }
@@ -109,11 +109,11 @@
   function scriptAlert(p) {
     if (p.vegas === null || !model.vegas.alerts_on
         || Math.abs(p.vegas - p.margin) < model.vegas.alert_points) return "";
-    const fav = esc(p.vegas > 0 ? p.home : p.away);
+    const fav = p.vegas > 0 ? p.home : p.away;
     if ((p.vegas > 0) !== (p.margin > 0)) {
       return `
           <p class="script-alert mt-3 px-3 py-2 text-sm font-bold" role="note">
-            &#128680; THE SCRIPT IS IN. Vegas has ${fav} winning
+            &#128680; THE SCRIPT IS IN. Vegas has ${esc(fav)} winning
             and we don't. When that happens, the script's pick has won 61% of the time.
             We'd love to tell you we're right. History says we're the ones getting played.
           </p>`;
@@ -158,11 +158,13 @@
           </div>
           <div class="flex items-center justify-between gap-4">
             <div class="text-right flex-1">
+              <div class="mb-1">${teamLogo(p.away, "md", true)}</div>
               <div class="text-sm uppercase tracking-wider">${esc(p.away)}</div>
               <div class="text-4xl sm:text-5xl font-bold tabular-nums">${Math.round(p.awayScore)}</div>
             </div>
             <div class="text-sm opacity-70">AT</div>
             <div class="flex-1">
+              <div class="mb-1">${teamLogo(p.home, "md", true)}</div>
               <div class="text-sm uppercase tracking-wider">${esc(p.home)}</div>
               <div class="text-4xl sm:text-5xl font-bold tabular-nums">${Math.round(p.homeScore)}</div>
             </div>

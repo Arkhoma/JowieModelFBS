@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_team_picker.html" import team_picker %}
+{% from "_team_picker.html" import team_picker with context %}
 {% block title %}Time Machine | JowieModel FBS{% endblock %}
 
 {% macro side(key, label, team, year) %}
@@ -44,6 +44,7 @@
 <div id="result" aria-live="polite"></div>
 
 <script type="application/json" id="snapshots">{{ snapshots | tojson }}</script>
+<script type="application/json" id="team-logos">{{ logo_ids | tojson }}</script>
 <script src="{{ nav.static }}/time_machine.js" defer></script>
 <script src="{{ nav.static }}/combobox.js" defer></script>
 {% endblock %}
