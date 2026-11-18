@@ -21,6 +21,7 @@ from markupsafe import Markup, escape
 
 from app.form_view import team_form_context
 from app.logo_view import conference_logo, logo_config, team_logo
+from app.scenario_view import key_games, n_sims, slate, team_path
 from cfbrank.games import (
     available_seasons, fbs_seasons, fbs_teams, load_season, season_teams,
 )
@@ -34,7 +35,7 @@ class SiteUrls:
     """Where every page lives on one site. Templates see these as
     nav / rank_url / team_url / predict_url / playoff_url / conferences_url."""
 
-    nav: dict                    # home, about, static, time_machine, search_index
+    nav: dict                    # home, about, static, time_machine, slate, search_index
     rank: Callable[[int, str], str]        # (season, sort)
     team: Callable[[str, int], str]        # (team, season)
     predict: Callable[[int], str]          # (season)
@@ -44,7 +45,8 @@ class SiteUrls:
 
 LIVE_URLS = SiteUrls(
     nav={"home": "/", "about": "/about", "static": "/static",
-         "time_machine": "/time-machine", "search_index": "/search-index.json"},
+         "time_machine": "/time-machine", "slate": "/slate",
+         "search_index": "/search-index.json"},
     rank=lambda season, sort: f"/?season={season}&sort={sort}",
     team=lambda team, season: f"/team/{quote(team)}?season={season}",
     predict=lambda season: f"/predict?season={season}",
@@ -235,9 +237,16 @@ def team_context(data, team: str) -> dict:
         "row": row,
         "team_seasons": fbs_seasons(team),
         "form": team_form_context(data.form, team) if row else None,
+        "path": (team_path(data, team, row["wins"], row["losses"])
+                 if row else None),
         "game_log": (team_game_log(team, data.games, data.remaining,
                                    data.predictor) if row else []),
     }
+
+
+def slate_context(data) -> dict:
+    """The next week's games (latest season only: it is the one with games left)."""
+    return {"slate": slate(data)}
 
 
 def predict_context(data) -> dict:
@@ -298,6 +307,8 @@ def playoff_context(data) -> dict:
         "first_round": (first_round_matchups(data.playoff_field, data.predictor)
                         if has_field else []),
         "bubble": bubble_teams(data) if has_field else [],
+        "key_games": key_games(data) if has_field else [],
+        "n_sims": n_sims(data),
         # Nothing left to play: the bracket is a what-if on final ratings.
         "season_complete": not data.remaining,
     }

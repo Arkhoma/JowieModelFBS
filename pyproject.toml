@@ -30,4 +30,5 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["e2e: browser smoke tests; need SITE_DIR and Playwright (see tests/e2e/conftest.py)"]
 # tests/conftest.py puts src/ on the path; no editable install required.

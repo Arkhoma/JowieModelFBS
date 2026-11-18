@@ -95,6 +95,18 @@ jobs:
       - name: Build static site
         run: python tools/build_static_site.py --out _site
 
+      # A real browser over the built site: JavaScript errors, the team
+      # pickers, JS-drawn logos, the nav on a phone. The Python tests can't
+      # see any of that. Runs before publishing, so a page that breaks in a
+      # browser keeps the last good version up, like every other check here.
+      - name: Install browser for the smoke test
+        run: playwright install --with-deps chromium
+
+      - name: Browser smoke test
+        run: python -m pytest tests/e2e -q
+        env:
+          SITE_DIR: _site
+
       # Every season has every page now; a dead link fails here instead
       # of shipping.
       - name: Check links

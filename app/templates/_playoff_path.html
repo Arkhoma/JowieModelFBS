@@ -1,0 +1,93 @@
+{#- "Path to the playoff" for the team page. `path` is app.scenario_view.team_path. -#}
+<section aria-labelledby="path" class="retro-card p-4 mb-8">
+  <h3 id="path" class="section-title text-xl mb-2">Path to the playoff</h3>
+
+  {% if path.out_of_reach %}
+  <p class="text-sm">
+    No simulated season puts {{ team }} in the 12-team field. Even winning out
+    ({{ path.best_record }}) leaves it at {{ percent(0) }}.
+  </p>
+  {% else %}
+  <p class="text-sm">
+    Right now: <strong>{{ percent(path.baseline) }}</strong> to make the 12-team field.
+  </p>
+  {% endif %}
+
+  <div class="path-grid mt-4">
+    <div class="overflow-x-auto">
+      <table class="stat-table w-full text-sm">
+        <caption class="eyebrow text-left mb-1">By final record</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="text-left px-3 py-2">Finishes</th>
+            <th scope="col" class="text-right px-3 py-2">How often</th>
+            <th scope="col" class="text-right px-3 py-2">Playoff odds</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in path.records %}
+          <tr class="border-t border-ink/20">
+            <td class="px-3 py-2 font-bold tabular-nums">{{ r.wins }}-{{ r.losses }}</td>
+            <td class="text-right px-3 py-2 tabular-nums">{{ percent(r.share) }}</td>
+            <td class="text-right px-3 py-2 tabular-nums font-bold">
+              {% if r.playoff is none %}<span class="text-muted" title="Too few simulated seasons end this way to say">&mdash;</span>{% else %}{{ percent(r.playoff) }}{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="stat-table w-full text-sm">
+        <caption class="eyebrow text-left mb-1">Remaining games</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="text-left px-3 py-2">Game</th>
+            <th scope="col" class="text-right px-3 py-2">If win</th>
+            <th scope="col" class="text-right px-3 py-2">If lose</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in path.games %}
+          <tr class="border-t border-ink/20">
+            <td class="px-3 py-2 font-bold">
+              {{ team_link(g.opponent, lead=g.venue) }}
+              <span class="block text-xs font-normal text-muted team-sub">Week {{ g.week }} &middot; {{ percent(g.win_probability) }} to win{% if g.neutral %} &middot; neutral site{% endif %}</span>
+            </td>
+            {% for odds in (g.if_win, g.if_lose) %}
+            <td class="text-right px-3 py-2 tabular-nums font-bold">
+              {% if odds is none %}<span class="text-muted" title="Too few simulated seasons end this way to say">&mdash;</span>{% else %}{{ percent(odds) }}{% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if path.rooting %}
+  <h4 class="eyebrow mt-5 mb-1">Who to root for</h4>
+  <ul class="list-disc pl-5 space-y-1 text-sm">
+    {% for r in path.rooting %}
+    <li>
+      Root for <strong>{{ team_link(r.root_for, size=None) }}</strong> in
+      {{ r.away }} at {{ r.home }} (Week {{ r.week }}).
+      {{ team }}'s odds: {{ percent(r.if_it_wins) }} if {{ r.root_for }} wins,
+      {{ percent(r.if_it_loses) }} if not.
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <p class="text-xs text-muted mt-3">
+    Read from the same {{ "{:,}".format(path.n_sims) }} simulated seasons as the
+    <a href="{{ playoff_url(season) }}" class="underline text-brick">Playoff page</a>:
+    each row keeps only the seasons where that result happened and counts how many
+    had {{ team }} in the field. A dash means too few simulated seasons ended that
+    way to say. Conference champions and the Resume ranking are rebuilt inside
+    every simulated season, so these odds already account for how everyone else's
+    games fall.
+  </p>
+</section>

@@ -1,0 +1,57 @@
+{#- Pieces shared by the Slate page and the Playoff page's "games that matter
+    most". `g` is a row from app.scenario_view.game_row. Import `with context`
+    (team_link / percent come from the page context). -#}
+
+{% macro matchup(g) %}
+<div>{{ team_link(g.away, lead=("#%d"|format(g.away_rank)) if g.away_rank else "") }}</div>
+<div class="team-sub text-xs text-muted">{{ "vs, neutral site" if g.neutral else "at" }}</div>
+<div>{{ team_link(g.home, lead=("#%d"|format(g.home_rank)) if g.home_rank else "") }}</div>
+{% endmacro %}
+
+{#- Whose playoff odds hinge on this game. Plain names, no logos: it's a sentence. -#}
+{% macro movers(g) %}
+{% if g.movers %}
+<ul class="text-xs space-y-1">
+  {% for m in g.movers %}
+  <li><span class="font-bold">{{ team_link(m.team, size=None) }}</span>:
+    {{ percent(m.if_home_wins) }} if {{ g.home }} wins &middot;
+    {{ percent(m.if_away_wins) }} if {{ g.away }} wins</li>
+  {% endfor %}
+</ul>
+{% else %}
+<span class="text-xs text-muted">Doesn't move the playoff race</span>
+{% endif %}
+{% endmacro %}
+
+{#- Our pick for a game. -#}
+{% macro pick(g) %}
+<div class="font-bold">{{ team_link(g.favourite, size=None) }} by {{ "%.1f"|format(g.spread) }}</div>
+<div class="text-xs text-muted">{{ percent(g.favourite_pct) }} to win</div>
+{% endmacro %}
+
+{#- Phones: the pick / Script / impact columns are hidden (a four-column
+    table doesn't fit), so the Game cell carries the same content as a card.
+    One cell, not extra rows, so the zebra striping stays intact. -#}
+{% macro phone_card(g, max_impact) %}
+<div class="sm:hidden mt-2 font-normal">
+  {{ pick(g) }}
+  {{ script_flag(g) }}
+  <div class="mt-2">
+    <div class="text-xs text-muted mb-1">Odds to make the field</div>
+    {{ impact_bar(g, max_impact) }}{{ movers(g) }}
+  </div>
+</div>
+{% endmacro %}
+
+{#- The Vegas Script flag, worded as on the Predict page: a different winner
+    (siren) or just a 3+ point split (warning). -#}
+{% macro script_flag(g) %}
+{% if g.script_alert == "flip" %}<div class="text-xs font-bold text-brick">&#128680; Script is in: different winner</div>
+{% elif g.script_alert %}<div class="text-xs font-bold text-brick">&#9888; Script is in: {{ "%.1f"|format(g.script_gap) }} pts off us</div>{% endif %}
+{% endmacro %}
+
+{% macro impact_bar(g, max_impact) %}
+<div class="h-1.5 bg-paper mb-1.5" aria-hidden="true">
+  <div class="h-full bg-brick" style="width: {{ "%.1f"|format(100 * g.impact / max_impact) }}%"></div>
+</div>
+{% endmacro %}

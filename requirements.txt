@@ -23,3 +23,7 @@ scipy==1.18.1
 # Tests
 pytest==9.1.1
 httpx==0.28.1        # fastapi.testclient needs it (tests/test_pages.py)
+# Browser smoke tests (tests/e2e). They skip unless SITE_DIR points at a built
+# site, and CI runs `playwright install chromium` before using them.
+playwright==1.65.2
+pytest-playwright==0.10.0

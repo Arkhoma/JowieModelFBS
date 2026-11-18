@@ -107,12 +107,31 @@ def _team_game_columns(team: str, sim: SeasonSimulation) -> list[tuple[int, bool
         if team in (sg.game.home_team, sg.game.away_team)
     ]
 
+def team_game_results(
+    team: str, sim: SeasonSimulation,
+) -> tuple[list[int], np.ndarray]:
+    """(game column indices, wins) for every simulated game `team` plays.
+
+    `wins` is an n_sims x k bool matrix: True where `team` won that game in
+    that simulated season. The one place "which side won" is turned into
+    "did this team win", shared by projections and scenario analysis.
+    """
+    columns = _team_game_columns(team, sim)
+    if not columns:
+        return [], np.empty((sim.n_sims, 0), dtype=bool)
+    won = np.column_stack([
+        sim.home_wins[:, i] if is_home else ~sim.home_wins[:, i]
+        for i, is_home in columns
+    ])
+    return [i for i, _ in columns], won
+
+
 def project_team(
     team: str, wins: int, losses: int, sim: SeasonSimulation,
 ) -> TeamProjection:
     """One team's projection, read off the shared simulation."""
-    columns = _team_game_columns(team, sim)
-    games_remaining = len(columns)
+    _, team_won = team_game_results(team, sim)
+    games_remaining = team_won.shape[1]
 
     if games_remaining == 0:
         return TeamProjection(
@@ -123,10 +142,6 @@ def project_team(
             most_likely_record=(wins, losses),
         )
 
-    team_won = np.column_stack([
-        sim.home_wins[:, i] if is_home else ~sim.home_wins[:, i]
-        for i, is_home in columns
-    ])
     sim_wins = wins + team_won.sum(axis=1)
     sim_losses = losses + games_remaining - team_won.sum(axis=1)
 

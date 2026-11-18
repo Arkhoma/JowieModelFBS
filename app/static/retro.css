@@ -280,6 +280,12 @@ select:focus-visible, summary:focus-visible, [role="option"]:focus-visible {
 .combo-field input { padding-left: 2.9rem; }
 .combo-logo { position: absolute; left: .55rem; top: 50%; transform: translateY(-50%); pointer-events: none; }
 
+/* What-if tables (Slate, Games That Matter Most, Path to the playoff). */
+.tr-top > td { vertical-align: top; }
+.impact-cell { min-width: 14rem; }
+.path-grid { display: grid; gap: 1.5rem; }
+@media (min-width: 1024px) { .path-grid { grid-template-columns: 1fr 1fr; } }
+
 @media (prefers-reduced-motion: no-preference) {
   .retro-btn, .nav-tab, .segmented a { transition: background-color .12s; }
 }

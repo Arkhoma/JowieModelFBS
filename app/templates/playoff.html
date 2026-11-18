@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_season_menu.html" import season_menu with context %}
+{% from "_games.html" import matchup, movers, impact_bar, pick, phone_card with context %}
 {% block title %}Playoff Projection {{ season }} | JowieModel FBS{% endblock %}
 
 {% block content %}
@@ -127,6 +128,50 @@
       </tbody>
     </table>
   </div>
+</div>
+{% endif %}
+
+{% if key_games %}
+<div class="mt-8">
+  <h3 class="page-title text-xl mb-1">Games That Matter Most</h3>
+  <p class="text-sm text-muted mb-3 max-w-3xl">
+    The remaining games that move the most playoff odds, across the whole field,
+    not just the teams playing. A toss-up that decides a bid ranks high; a blowout
+    ranks near zero.
+  </p>
+  <div class="overflow-x-auto retro-card">
+    <table class="stat-table w-full text-sm">
+      <caption class="sr-only">Remaining games ranked by effect on playoff odds</caption>
+      <thead>
+        <tr>
+          <th scope="col" class="text-left px-3 py-2">Game</th>
+          <th scope="col" class="text-left px-3 py-2 hidden sm:table-cell">Our pick</th>
+          <th scope="col" class="text-left px-3 py-2 hidden sm:table-cell">Who it moves <span class="block text-xs font-normal">odds to make the field</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in key_games %}
+        <tr class="border-t border-ink/20 tr-top">
+          <td class="px-3 py-2.5 font-bold">
+            {{ matchup(g) }}
+            <div class="team-sub text-xs font-normal text-muted mt-1">Week {{ g.week }}{% if g.kickoff %} &middot; {{ g.kickoff }}{% endif %}</div>
+            {{ phone_card(g, key_games[0].impact) }}
+          </td>
+          <td class="px-3 py-2.5 hidden sm:table-cell">
+            {{ pick(g) }}
+          </td>
+          <td class="px-3 py-2.5 impact-cell hidden sm:table-cell">
+            {{ impact_bar(g, key_games[0].impact) }}
+            {{ movers(g) }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-xs text-muted mt-2">
+    Every game this week, in order, is on <a href="{{ nav.slate }}" class="underline text-brick">This Week</a>.
+  </p>
 </div>
 {% endif %}
 

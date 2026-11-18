@@ -56,6 +56,7 @@
             ('conferences', conferences_url(season), 'Conferences', 'Confs'),
             ('predict', predict_url(season), 'Predict', 'Predict'),
             ('playoff', playoff_url(season), 'Playoff', 'Playoff'),
+            ('slate', nav.slate, 'This Week', 'Week'),
             ('about', nav.about, 'How It Works', 'About')
           ] %}
           {% for key, href, label, short in tabs %}

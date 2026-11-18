@@ -44,6 +44,7 @@ from cfbrank.resume import (  # noqa: E402
     build_resumes, rank_resumes, simulate_resume_ranks,
 )
 from cfbrank.ridge import fit  # noqa: E402
+from cfbrank.scenarios import PlayoffScenarios  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
 from cfbrank.vegas_script import (  # noqa: E402
     VegasScript, alerts_active, fit_market_ratings,
@@ -51,7 +52,7 @@ from cfbrank.vegas_script import (  # noqa: E402
 
 from app.pages import (  # noqa: E402
     LIVE_URLS, SORTS, base_context, conferences_context, playoff_context,
-    predict_context, rankings_context, team_context, team_index,
+    predict_context, rankings_context, slate_context, team_context, team_index,
     time_machine_context,
 )
 
@@ -89,6 +90,7 @@ class SeasonModel:
     playoff_field: list = None
     playoff_odds: object = None
     form: object = None          # cfbrank.form.SeasonForm, or None (pre-2018)
+    scenarios: object = None     # cfbrank.scenarios.PlayoffScenarios, or None
 
 def _build_epa_model(season: int, games, margin_prior):
     """Efficiency ratings for one season, or None if unavailable.
@@ -196,10 +198,12 @@ def get_season(season: int) -> SeasonModel:
                                  conference_of, champions)
         playoff_odds = simulate_bracket(fields, predictor)
         playoff_field = consensus_field(playoff_odds, resume_rank, conference_of)
+        # "What if" questions are filters over these same simulated seasons.
+        scenarios = PlayoffScenarios.from_fields(sim, fields)
     except ValueError:
         # Too few ranked conferences/teams for a 12-team field (a thin
         # fixture season, say) -- no playoff page rather than a broken one.
-        playoff_field, playoff_odds = None, None
+        playoff_field, playoff_odds, scenarios = None, None, None
 
     rankings = []
     for rank, (team, rating) in enumerate(ranked, 1):
@@ -244,6 +248,7 @@ def get_season(season: int) -> SeasonModel:
         remaining=remaining,
         playoff_field=playoff_field,
         playoff_odds=playoff_odds,
+        scenarios=scenarios,
         form=season_form(season),
     )
 
@@ -388,6 +393,16 @@ def predict_page(request: Request, season: int | None = None):
     season = _season(season)
     return TEMPLATES.TemplateResponse(request, "predict.html", base_context(
         "predict", season, **predict_context(get_season(season))))
+
+
+@app.get("/slate", response_class=HTMLResponse)
+def slate_page(request: Request):
+    """The next week's games: our pick, the market's, and how much each one
+    moves the playoff odds. Latest season only -- it's the one with games
+    left to play."""
+    season = _latest_season()
+    return TEMPLATES.TemplateResponse(request, "slate.html", base_context(
+        "slate", season, **slate_context(get_season(season))))
 
 
 @app.get("/time-machine", response_class=HTMLResponse)

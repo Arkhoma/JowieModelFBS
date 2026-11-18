@@ -38,7 +38,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from app.main import BENCHMARK_PATH, get_season  # noqa: E402
 from app.pages import (  # noqa: E402
     SORTS, SiteUrls, base_context, conferences_context, playoff_context,
-    predict_context, rankings_context, team_context, team_index,
+    predict_context, rankings_context, slate_context, team_context, team_index,
     time_machine_context,
 )
 from cfbrank.games import available_seasons  # noqa: E402
@@ -68,7 +68,8 @@ def _team_slug(team: str) -> str:
 # no subfolders are enough -- see the "index.html" alias in build().
 STATIC_URLS = SiteUrls(
     nav={"home": "index.html", "about": "about.html", "static": "static",
-         "time_machine": "time-machine.html", "search_index": "search-index.json"},
+         "time_machine": "time-machine.html", "slate": "slate.html",
+         "search_index": "search-index.json"},
     rank=lambda season, sort: f"rankings-{season}-{sort}.html",
     team=lambda team, season: f"team-{_team_slug(team)}{_suffix(season)}.html",
     predict=lambda season: f"predict{_suffix(season)}.html",
@@ -126,6 +127,9 @@ def build(out_dir: Path, seasons: list[int] | None = None) -> None:
             card=load_scorecard(BENCHMARK_PATH))
     _render(env, out_dir, "time-machine.html", "time_machine.html", "predict",
             latest, **time_machine_context(get_season))
+    # Latest season only: it is the one with games left to play.
+    _render(env, out_dir, STATIC_URLS.nav["slate"], "slate.html", "slate",
+            latest, **slate_context(get_season(latest)))
     (out_dir / STATIC_URLS.nav["search_index"]).write_text(
         json.dumps(team_index(STATIC_URLS), separators=(",", ":")),
         encoding="utf-8")

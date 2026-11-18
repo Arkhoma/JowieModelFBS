@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_games.html" import matchup, movers, impact_bar, script_flag, pick, phone_card with context %}
+{% block title %}This Week | JowieModel FBS{% endblock %}
+
+{% block content %}
+
+<div class="mb-6">
+  <h2 class="page-title text-3xl sm:text-4xl">This Week</h2>
+  {% if slate %}
+  <p class="text-sm text-muted mt-1 max-w-3xl">
+    Week {{ slate.week }} of {{ season }}: {{ slate.rows|length }} games, with our pick, the
+    Vegas Script's, and how much each one moves the playoff race. Games that matter most come first.
+  </p>
+  {% endif %}
+</div>
+
+{% if not slate %}
+<p class="retro-card p-4 text-sm">
+  No games left to predict. The {{ season }} season is finished, or the next
+  schedule isn't posted yet. Check back when games are on the calendar.
+</p>
+{% else %}
+
+<div class="overflow-x-auto retro-card">
+  <table class="stat-table w-full text-sm">
+    <caption class="sr-only">Week {{ slate.week }} games, most playoff-relevant first</caption>
+    <thead>
+      <tr>
+        <th scope="col" class="text-left px-3 py-2">Game</th>
+        <th scope="col" class="text-left px-3 py-2 hidden sm:table-cell">Our pick</th>
+        <th scope="col" class="text-left px-3 py-2 hidden sm:table-cell">Vegas Script</th>
+        <th scope="col" class="text-left px-3 py-2 hidden sm:table-cell">Playoff impact <span class="block text-xs font-normal">odds to make the 12-team field</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for g in slate.rows %}
+      <tr class="border-t border-ink/20 tr-top">
+        <td class="px-3 py-2.5 font-bold">
+          {{ matchup(g) }}
+          {% if g.kickoff or g.conference_game %}
+          <div class="team-sub text-xs font-normal text-muted mt-1">{{ g.kickoff }}{% if g.kickoff and g.conference_game %} &middot; {% endif %}{% if g.conference_game %}conference{% endif %}</div>
+          {% endif %}
+          {{ phone_card(g, slate.max_impact) }}
+        </td>
+        <td class="px-3 py-2.5 hidden sm:table-cell">
+          {{ pick(g) }}
+        </td>
+        <td class="px-3 py-2.5 hidden sm:table-cell">
+          {% if g.vegas %}
+          <div>{{ g.vegas.favourite }} by {{ "%.1f"|format(g.vegas.margin) }}</div>
+          {{ script_flag(g) }}
+          {% else %}<span class="text-muted">&mdash;</span>{% endif %}
+        </td>
+        <td class="px-3 py-2.5 impact-cell hidden sm:table-cell">
+          {{ impact_bar(g, slate.max_impact) }}
+          {{ movers(g) }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-muted mt-4 max-w-3xl">
+  <strong>Playoff impact</strong> is how much the result changes teams' odds of
+  making the 12-team field, added up across every team and weighted by how
+  uncertain the game is: a toss-up that decides a bid scores high, a blowout
+  scores near zero. The lines show the teams whose odds move the most.
+  {% if slate.n_sims %}It is read from the same {{ "{:,}".format(slate.n_sims) }} simulated
+  seasons as the
+  <a href="{{ playoff_url(season) }}" class="underline text-brick">Playoff page</a>,
+  so the numbers always agree.{% endif %}
+  Predictions use the same model as
+  <a href="{{ predict_url(season) }}" class="underline text-brick">Predict</a>.
+</p>
+
+{% endif %}
+
+{% endblock %}
