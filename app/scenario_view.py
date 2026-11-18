@@ -117,6 +117,43 @@ def key_games(data, limit: int = KEY_GAMES) -> list[dict]:
             for i in data.scenarios.game_impacts()[:limit] if i.impact > 0]
 
 
+THIN_COVERAGE = 0.5     # fewer lined games than this share of all: say so
+EARLY_HEAVY = 0.6       # this much of the lined sample from early weeks: say so
+
+
+def record_view(record: dict | None) -> dict | None:
+    """Adds a plain-English verdict and coverage caveat to
+    cfbrank.season_record.weekly_record.
+
+    `gap` is OUR average spread miss minus the closing line's, so positive
+    means the line is ahead. A gap inside its own 95% interval is called a
+    tie rather than a lead for either side: with a few hundred games the
+    difference is usually noise. When few games have a line, the comparison
+    is flagged as thin (and as early-season-heavy, where the gap runs
+    widest) rather than presented as if it covered the whole season.
+    """
+    if record is None:
+        return None
+    overall = record["overall"]
+    line = overall["vs_line"]
+    verdict = caveat = None
+    if line is not None:
+        if abs(line["gap"]) <= line["gap_ci"]:
+            verdict = "a statistical tie with the closing line"
+        elif line["gap"] > 0:
+            verdict = f"the closing line is ahead by {line['gap']:.2f} points a game"
+        else:
+            verdict = f"we are ahead of the closing line by {-line['gap']:.2f} points a game"
+        if overall["lined"] < THIN_COVERAGE * overall["n"]:
+            caveat = (f"Only {overall['lined']} of {overall['n']} games have a closing "
+                      "line on file, so this comparison rests on a thin sample")
+            if overall["early_lined"] >= EARLY_HEAVY:
+                caveat += (", mostly early-season games, where our gap to the "
+                           "line is usually widest")
+            caveat += "."
+    return {**record, "verdict": verdict, "caveat": caveat}
+
+
 def slate(data) -> dict | None:
     """The next week's games with picks and playoff impact, most important
     first; None when nothing is left to play (offseason, finished season)."""

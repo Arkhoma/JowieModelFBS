@@ -33,22 +33,17 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from blend_epa_margin import (  # noqa: E402
+# MIN_TRAINING and START_WEEK are unused here now, but check_ranking_order.py
+# imports them from this module, so they stay re-exported.
+from blend_epa_margin import (  # noqa: E402, F401
     MARGIN_PARAMS, MIN_TRAINING, RELATIVE_LAMBDA, START_WEEK,
 )
-from cfbrank.ensemble import EFFICIENCY_METRIC, EnsembleModel  # noqa: E402
-from cfbrank.epa_ridge import (  # noqa: E402
-    build_epa_games, fit_epa_ratings_primed, get_ep_model,
-)
-from cfbrank.games import POSTSEASON, load_season  # noqa: E402
+from cfbrank import season_record  # noqa: E402
+from cfbrank.epa_ridge import get_ep_model  # noqa: E402
+from cfbrank.games import POSTSEASON  # noqa: E402
 from cfbrank.lines import home_lines, total_lines  # noqa: E402
-from cfbrank.offdef_prior import fit_points_model  # noqa: E402
-from cfbrank.predict import Predictor  # noqa: E402
-from cfbrank.prior import home_field_prior  # noqa: E402
-from cfbrank.prior_model import build_roster_prior_or_empty  # noqa: E402
-from cfbrank.ridge import fit as fit_margin  # noqa: E402
 from cfbrank.scorecard import (  # noqa: E402
-    EARLY_WEEK_CUTOFF, TIERS, grade, grade_totals, postseason_tier,
+    EARLY_WEEK_CUTOFF, TIERS, grade, grade_totals,
 )
 
 # The web app's accuracy view reads this file -- rerun this tool after any
@@ -67,62 +62,14 @@ def walk_season(season: int, market: dict[str, float],
                 totals: dict[str, float]) -> pd.DataFrame:
     """Walk-forward PRODUCTION predictions joined to the closing lines.
 
-    Goes through Predictor exactly as the app does, so the margin, total
-    and win probability graded here are the ones the site would have shown.
+    The logic lives in cfbrank.season_record (the web app grades the live
+    season with it too). This wrapper passes THIS module's MARGIN_PARAMS and
+    RELATIVE_LAMBDA at call time, because run_variant.py and
+    tune_prior_strength.py re-assign them to test a variant.
     """
-    games = sorted(load_season(season), key=lambda g: g.week)
-    epa_by_id = {g.game_id: g for g in build_epa_games(
-        season, games, get_ep_model(), metric=EFFICIENCY_METRIC)}
-    prior = build_roster_prior_or_empty(season) or None
-    hfa_prior = home_field_prior(season)
-    rows = []
-
-    for week in sorted({g.week for g in games}):
-        if week < START_WEEK:
-            continue
-        history = [g for g in games if g.week < week]
-        upcoming = [g for g in games if g.week == week
-                    and str(g.game_id) in market]
-        if len(history) < MIN_TRAINING or not upcoming:
-            continue
-        epa_history = [epa_by_id[str(g.game_id)] for g in history
-                       if str(g.game_id) in epa_by_id]
-        if len(epa_history) < MIN_TRAINING:
-            continue
-
-        model = EnsembleModel(
-            margin_model=fit_margin(history, prior=prior,
-                                    home_field_prior=hfa_prior,
-                                    **MARGIN_PARAMS),
-            epa_model=fit_epa_ratings_primed(
-                epa_history, prior, relative_lambda=RELATIVE_LAMBDA),
-        )
-        predictor = Predictor.from_model(
-            model, history,
-            total_model=fit_points_model(season, history, hfa_prior))
-        for game in upcoming:
-            if not (model.knows(game.home_team)
-                    and model.knows(game.away_team)):
-                continue
-            p = predictor.predict(
-                game.home_team, game.away_team, game.neutral_site)
-            gid = str(game.game_id)
-            rows.append({
-                "season": season,
-                "week": week,
-                "season_type": game.season_type,
-                "tier": (postseason_tier(game.notes)
-                         if game.season_type == POSTSEASON else ""),
-                "game_id": gid,
-                "ours": p.predicted_margin,
-                "line": market[gid],
-                "actual": float(game.margin),
-                "home_win_prob": p.home_win_probability,
-                "ours_total": p.total,
-                "total_line": totals.get(gid),
-                "actual_total": float(game.home_points + game.away_points),
-            })
-    return pd.DataFrame(rows)
+    return season_record.walk_season(
+        season, market, totals,
+        margin_params=MARGIN_PARAMS, relative_lambda=RELATIVE_LAMBDA)
 
 
 def summarise(frame: pd.DataFrame, label: str) -> None:

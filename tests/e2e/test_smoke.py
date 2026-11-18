@@ -156,6 +156,26 @@ def test_this_week_on_a_phone_shows_the_playoff_impact_without_sideways_scrollin
     }""")
 
 
+def test_the_season_record_fits_a_phone_and_opens_week_by_week(browser_page):
+    """The record table once spilled off a phone screen (seven columns)."""
+    page = browser_page.page
+    page.set_viewport_size({"width": 390, "height": 800})
+    browser_page.open(PAGES["this week"])
+    record = page.locator("section[aria-labelledby=record]")
+    if record.count() == 0:
+        pytest.skip("no graded games yet")
+    record.locator("summary").click()
+    expect(record.locator("tbody tr").first).to_be_visible()
+    assert page.evaluate("""() => {
+        const wrap = document.querySelector('section[aria-labelledby=record] .overflow-x-auto');
+        return wrap.scrollWidth <= wrap.clientWidth + 1;
+    }""")
+    # "Week 4" must not wrap onto two lines.
+    label = record.locator("tbody th").first
+    assert label.evaluate("el => el.getBoundingClientRect().height") < 60
+    assert browser_page.problems == []
+
+
 def test_a_team_page_opens_from_the_rankings(browser_page):
     browser_page.open(PAGES["rankings"])
     page = browser_page.page

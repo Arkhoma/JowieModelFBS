@@ -289,3 +289,6 @@ select:focus-visible, summary:focus-visible, [role="option"]:focus-visible {
 @media (prefers-reduced-motion: no-preference) {
   .retro-btn, .nav-tab, .segmented a { transition: background-color .12s; }
 }
+
+/* Week-by-week record: a label like 'Week 4' must not wrap on a phone. */
+.week-label { white-space: nowrap; }

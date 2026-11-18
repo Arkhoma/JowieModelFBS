@@ -21,7 +21,7 @@ from markupsafe import Markup, escape
 
 from app.form_view import team_form_context
 from app.logo_view import conference_logo, logo_config, team_logo
-from app.scenario_view import key_games, n_sims, slate, team_path
+from app.scenario_view import key_games, n_sims, record_view, slate, team_path
 from cfbrank.games import (
     available_seasons, fbs_seasons, fbs_teams, load_season, season_teams,
 )
@@ -244,9 +244,11 @@ def team_context(data, team: str) -> dict:
     }
 
 
-def slate_context(data) -> dict:
-    """The next week's games (latest season only: it is the one with games left)."""
-    return {"slate": slate(data)}
+def slate_context(data, record: dict | None = None) -> dict:
+    """The next week's games (latest season only: it is the one with games
+    left) and how the season's picks have done so far (`record`, from
+    app.main.get_record; None when there are no lined games to grade)."""
+    return {"slate": slate(data), "record": record_view(record)}
 
 
 def predict_context(data) -> dict:

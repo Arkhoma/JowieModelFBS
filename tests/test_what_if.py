@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from app.main import get_season  # noqa: E402
+from app.main import get_record, get_season  # noqa: E402
 from app.pages import (  # noqa: E402
     LIVE_URLS, base_context, playoff_context, slate_context, team_context,
 )
@@ -107,6 +107,48 @@ def test_live_server_serves_the_slate(data):
     from app.main import app
     response = TestClient(app).get("/slate")
     assert response.status_code == 200 and "This Week" in response.text
+
+
+# --- How our picks have done -------------------------------------------------
+
+@pytest.fixture(scope="module")
+def record():
+    result = get_record(SEASON)
+    if result is None:
+        pytest.skip("no lined games to grade yet")
+    return result
+
+
+def test_record_grades_real_walk_forward_picks(data, record):
+    overall = record["overall"]
+    assert overall["n"] > 0 and overall["n"] >= overall["lined"]
+    assert 0.5 < overall["su"] < 1.0
+    line = overall["vs_line"]
+    if line is not None:                          # lines can be missing for a season
+        assert 0.5 < line["su"] < 1.0 and 0.5 < line["line_su"] < 1.0
+        assert line["gap_ci"] > 0
+    assert sum(w["n"] for w in record["weeks"]) <= overall["n"]
+    assert all(w["week"] is None or w["week"] >= 4 for w in record["weeks"])   # START_WEEK
+    assert record["through"] <= data.max_week
+
+
+def test_record_shows_on_the_slate_page(data, record):
+    html = _render("slate.html", "slate", **slate_context(data, record))
+    assert 'aria-labelledby="record"' in html and "How our picks have done" in html
+    assert f"<strong>{record['overall']['n']}</strong> games" in html
+    assert html.count('<th scope="row"') == len(record["weeks"])
+
+
+def test_record_still_shows_when_there_is_no_slate(record):
+    """Offseason: nothing to predict, but the season's record is still news."""
+    from app.scenario_view import record_view
+    html = _render("slate.html", "slate", slate=None, record=record_view(record))
+    assert "No games left to predict" in html and "How our picks have done" in html
+
+
+def test_slate_without_a_record_has_no_record_section(data):
+    html = _render("slate.html", "slate", **slate_context(data))     # record defaults to None
+    assert 'aria-labelledby="record"' not in html
 
 
 # --- Games that matter most -----------------------------------------------

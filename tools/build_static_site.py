@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from app.main import BENCHMARK_PATH, get_season  # noqa: E402
+from app.main import BENCHMARK_PATH, get_record, get_season  # noqa: E402
 from app.pages import (  # noqa: E402
     SORTS, SiteUrls, base_context, conferences_context, playoff_context,
     predict_context, rankings_context, slate_context, team_context, team_index,
@@ -129,7 +129,7 @@ def build(out_dir: Path, seasons: list[int] | None = None) -> None:
             latest, **time_machine_context(get_season))
     # Latest season only: it is the one with games left to play.
     _render(env, out_dir, STATIC_URLS.nav["slate"], "slate.html", "slate",
-            latest, **slate_context(get_season(latest)))
+            latest, **slate_context(get_season(latest), get_record(latest)))
     (out_dir / STATIC_URLS.nav["search_index"]).write_text(
         json.dumps(team_index(STATIC_URLS), separators=(",", ":")),
         encoding="utf-8")

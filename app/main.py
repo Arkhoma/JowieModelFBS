@@ -27,7 +27,7 @@ from cfbrank.epa_ridge import (  # noqa: E402
 from cfbrank.games import (  # noqa: E402
     POSTSEASON, available_seasons, load_remaining_schedule, load_season,
 )
-from cfbrank.lines import home_lines  # noqa: E402
+from cfbrank.lines import home_lines, total_lines  # noqa: E402
 from cfbrank.offdef_prior import fit_points_model  # noqa: E402
 from cfbrank.explain import explain_rankings  # noqa: E402
 from cfbrank.playoff import (  # noqa: E402
@@ -45,6 +45,7 @@ from cfbrank.resume import (  # noqa: E402
 )
 from cfbrank.ridge import fit  # noqa: E402
 from cfbrank.scenarios import PlayoffScenarios  # noqa: E402
+from cfbrank.season_record import walk_season, weekly_record  # noqa: E402
 from cfbrank.scorecard import load_scorecard  # noqa: E402
 from cfbrank.vegas_script import (  # noqa: E402
     VegasScript, alerts_active, fit_market_ratings,
@@ -115,6 +116,23 @@ def _build_epa_model(season: int, games, margin_prior):
     try:
         return fit_epa_ratings_primed(epa_games, margin_prior)
     except (ValueError, np.linalg.LinAlgError):
+        return None
+
+
+@lru_cache(maxsize=4)
+def get_record(season: int) -> dict | None:
+    """How this season's picks have done: each week's games predicted from
+    earlier weeks only, graded against the closing line (cfbrank.season_record).
+
+    Separate from get_season on purpose. It refits the model once per week,
+    so adding it to every season's fit would slow the Time Machine's
+    all-seasons load for a number only the This Week page shows.
+    None when there are no games to grade, or no play data for the season.
+    """
+    try:
+        return weekly_record(walk_season(
+            season, home_lines(), total_lines(), include_unlined=True))
+    except (FileNotFoundError, ValueError, KeyError):
         return None
 
 
@@ -402,7 +420,8 @@ def slate_page(request: Request):
     left to play."""
     season = _latest_season()
     return TEMPLATES.TemplateResponse(request, "slate.html", base_context(
-        "slate", season, **slate_context(get_season(season))))
+        "slate", season,
+        **slate_context(get_season(season), get_record(season))))
 
 
 @app.get("/time-machine", response_class=HTMLResponse)
