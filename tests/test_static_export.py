@@ -65,6 +65,20 @@ def test_calibrated_rating_reproduces_predict_margin_ensemble(
     assert lhs == pytest.approx(ensemble_model.predict_margin(home, away))
 
 
+@pytest.mark.parametrize("home,away", MATCHUPS)
+def test_published_rating_agrees_with_predictions(ensemble_model, home, away):
+    """The number the rankings table sorts by must not contradict the
+    Predict page: whoever is rated higher is favoured on a neutral field.
+
+    Regression: rating() summed the RAW (ridge-compressed) margin rating,
+    so the table gave the scores half ~half its prediction-time weight and
+    ranked Texas A&M (4-6) above Oklahoma while the Predictor favoured OU.
+    """
+    edge = ensemble_model.rating(home) - ensemble_model.rating(away)
+    neutral = ensemble_model.predict_margin(home, away, neutral_site=True)
+    assert edge == pytest.approx(neutral)
+
+
 def test_payload_omits_total_model_when_absent(games_2024, margin_model):
     predictor = Predictor.from_model(margin_model, games_2024)
     payload = predictor_payload(predictor, ["Ohio State", "Michigan"])

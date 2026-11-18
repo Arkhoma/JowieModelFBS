@@ -94,18 +94,20 @@ class EnsembleModel:
     def rating(self, team: str) -> float:
         """Combined rating in points, on the same scale as predictions.
 
-        Built from the same weights as predict_margin() so the published
-        table and the predictions cannot disagree.
-        """
-        total = 0.0
-        if team in self.margin_model.ratings:
-            total += self.margin_weight * self.margin_model.rating(team)
-        if team in self.epa_model.ratings:
-            total += self.epa_weight * self.epa_model.rating_in_points(team)
-        return total
+        Calibrated, so rating(a) - rating(b) + home_field IS
+        predict_margin(a, b). That identity is the whole point: the
+        published table, strength of schedule and the resume benchmark
+        all read this number, so they cannot disagree with the Predict
+        page.
 
-    def calibrated_rating(self, team: str) -> float:
-        """Weighted, calibrated rating -- see RatingResult.calibrated_rating.
+        It used to sum the RAW margin rating. Ridge compresses margin
+        ratings (~1.9x), predict_margin() undoes that with a calibration
+        slope, and the table did not -- so in the table the scores half
+        counted for about half what it does in a prediction, and the
+        success-rate half (already in points) counted double. Texas A&M
+        (4-6, per-play success #14) sat above Oklahoma (6-4) in the table
+        while the Predictor made Oklahoma the favourite.
+        tools/dig_pair.py reproduces it.
 
         Mirrors predict_margin()'s happy path (both submodels know the
         team). If only one submodel knows a team, predict_margin() falls
@@ -119,6 +121,14 @@ class EnsembleModel:
         if team in self.epa_model.ratings:
             total += self.epa_weight * self.epa_model.calibrated_rating(team)
         return total
+
+    def calibrated_rating(self, team: str) -> float:
+        """Same as rating(); kept so every model answers the same question.
+
+        RatingResult distinguishes the raw ridge rating from the
+        calibrated one. For the ensemble there is only the calibrated one.
+        """
+        return self.rating(team)
 
     def fbs_ratings(self) -> dict[str, float]:
         """Published table: every FBS team either model knows."""
