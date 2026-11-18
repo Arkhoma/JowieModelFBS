@@ -5,11 +5,16 @@ For every priced game, take each team's view (record going in, margin from
 its side) and compare our error to the line's error.  Positive bias means
 the team did BETTER than the number said.
 
-    python tools/check_record_bias.py
+    python tools/check_record_bias.py [path/to/benchmark.csv]
+
+Defaults to the production file; pass a data/variants/*.csv to judge a
+variant the same way.
 """
 from __future__ import annotations
 
 from pathlib import Path
+
+import sys
 
 import numpy as np
 import pandas as pd
@@ -21,8 +26,8 @@ BUCKETS = [("unbeaten/1 loss (>=80%)", 0.8, 1.01),
            ("losing (<40%)", 0.0, 0.4)]
 
 
-def team_views() -> pd.DataFrame:
-    bench = pd.read_csv(ROOT / "data" / "benchmark_vs_market.csv")
+def team_views(path: Path | None = None) -> pd.DataFrame:
+    bench = pd.read_csv(path or ROOT / "data" / "benchmark_vs_market.csv")
     frames = []
     for season in sorted(bench.season.unique()):
         path = ROOT / "data" / "raw" / "schedules" / f"schedules_{season}.csv"
@@ -78,7 +83,8 @@ def report(games: pd.DataFrame, label: str) -> None:
 
 
 def main() -> None:
-    games = team_views()
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+    games = team_views(path)
     report(games, "ALL weeks (3+ games played), 2021-2025")
     report(games[games.week >= 9], "Week 9+ only")
 

@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools"))
 
 import benchmark_vs_market as bench  # noqa: E402
+from cfbrank import ridge  # noqa: E402
 from cfbrank.epa_ridge import get_ep_model  # noqa: E402
 
 OUT = ROOT / "data" / "variants"
@@ -28,11 +29,25 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", required=True)
     parser.add_argument("--halflife", type=float)
+    parser.add_argument("--lambda", dest="margin_lambda", type=float,
+                        help="margin ridge penalty (shipped 5.0)")
+    parser.add_argument("--relative-lambda", type=float,
+                        help="success-rate ridge penalty (shipped 4.0)")
+    parser.add_argument("--calibration-prior", type=float,
+                        help="long-run slope the calibration shrinks to "
+                             "(shipped 1.85)")
     parser.add_argument("--seasons", type=int, nargs="+", default=list(bench.SEASONS))
     args = parser.parse_args()
 
     if args.halflife is not None:
         bench.MARGIN_PARAMS = {**bench.MARGIN_PARAMS, "halflife": args.halflife}
+    if args.margin_lambda is not None:
+        bench.MARGIN_PARAMS = {**bench.MARGIN_PARAMS,
+                               "lambda_": args.margin_lambda}
+    if args.relative_lambda is not None:
+        bench.RELATIVE_LAMBDA = args.relative_lambda
+    if args.calibration_prior is not None:
+        ridge.CALIBRATION_PRIOR = args.calibration_prior
 
     market, totals = bench.load_home_lines(), bench.load_total_lines()
     get_ep_model()
