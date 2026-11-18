@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 from app.main import get_season  # noqa: E402
 from app.pages import (  # noqa: E402
     LIVE_URLS, SiteUrls, base_context, conference_spread, conferences_context,
-    link_teams, logo_ids,
+    link_teams, logo_ids, percent,
     playoff_context, predict_context, rankings_context, team_context,
     team_index, team_link,
 )
@@ -187,6 +187,26 @@ def test_prediction_result_shows_both_teams_logos_on_the_scoreboard(data):
     assert html.count('class="logo-slot logo-md"') == 2
     assert "logos-dark/" in html                  # artwork meant for the dark scoreboard
     assert "logo-xs" not in html                   # no logos in the "At ..." / "by" lines
+
+
+@pytest.mark.parametrize("value, shown", [
+    (0, "0%"),          # truly zero (or no trial hit it) stays 0
+    (0.05, "<1%"),      # one trial in 2,000: possible, so not "0%"
+    (0.99, "<1%"),
+    (1, "1%"),
+    (1.4, "1%"),
+    (49.6, "50%"),
+    (98.9, "99%"),
+    (99, "99%"),
+    (99.6, ">99%"),     # not certain, so not "100%"
+    (100, "100%"),      # finished season / locked in
+])
+def test_percent_never_overstates_certainty(value, shown):
+    assert percent(value) == shown
+
+
+def test_templates_get_percent_from_the_page_context():
+    assert base_context("playoff", SEASON, STATIC_URLS)["percent"](0.3) == "<1%"
 
 
 def test_filtered_out_picker_options_really_disappear():

@@ -63,6 +63,21 @@ SORTS = {"predictive": _rank_key("rank"), "resume": _rank_key("resume_rank"),
          "defense": _rank_key("defense_rank")}
 
 
+def percent(value: float) -> str:
+    """A whole-number percent that never overstates certainty.
+
+    Plain rounding turns 0.3% into "0%" (reads as impossible) and 99.7%
+    into "100%" (reads as certain). Anything strictly between shows as
+    "<1%" / ">99%". Exact 0 and 100 -- a finished season, or a team
+    mathematically in or out -- keep their plain form.
+    """
+    if 0 < value < 1:
+        return "<1%"
+    if 99 < value < 100:
+        return ">99%"
+    return f"{value:.0f}%"
+
+
 # --- Team links: every team name on the site goes through these. -------
 
 def team_link(team: str, season: int, urls: SiteUrls, size: str | None = "sm",
@@ -162,6 +177,7 @@ def base_context(active_tab: str, season: int, urls: SiteUrls = LIVE_URLS,
             team, s, urls, size, lead),
         "link_teams": lambda text, s=season: link_teams(text, s, urls),
         "team_logo": team_logo,
+        "percent": percent,
         "conference_logo": conference_logo,
         # Read by search.js so JS-drawn logos use the same CDN and sizes.
         "logo_config": logo_config(),

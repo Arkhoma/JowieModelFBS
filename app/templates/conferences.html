@@ -6,7 +6,7 @@
 <li class="py-2 border-t border-line first:border-0">
   <div class="flex justify-between gap-3 text-sm">
     {{ team_link(team) }}
-    <span class="tabular-nums font-bold">{{ "%.0f"|format(pct) }}%</span>
+    <span class="tabular-nums font-bold">{{ percent(pct) }}</span>
   </div>
   <div class="h-1.5 mt-1 bg-paper" aria-hidden="true">
     <div class="h-full bg-navy" style="width: {{ pct }}%"></div>

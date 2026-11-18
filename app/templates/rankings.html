@@ -65,7 +65,7 @@
         <td class="text-right px-3 py-2 tabular-nums">
           {{ row.projection.projected_record }}
           {% if row.projection.games_remaining %}
-          <span class="block text-xs text-muted">{{ "%.0f"|format(row.projection.bowl_eligible_pct) }}% bowl</span>
+          <span class="block text-xs text-muted">{{ percent(row.projection.bowl_eligible_pct) }} bowl</span>
           {% endif %}
         </td>
         {% for key, rank, value in cols %}
